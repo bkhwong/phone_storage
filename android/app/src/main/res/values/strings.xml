@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Photo Sync</string>
+    <string name="notification_channel_sync">Sync</string>
+    <string name="notification_channel_migration">Migration</string>
+    <string name="sync_notification_title">Photo Sync</string>
+    <string name="migration_notification_title">Library migration</string>
+</resources>

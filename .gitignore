@@ -1,0 +1,17 @@
+# Python
+server/.venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local config & data
+server/.env
+data/
+storage/
+*.db
+*.db-*
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

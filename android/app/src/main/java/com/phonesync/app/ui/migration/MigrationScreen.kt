@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -31,6 +32,7 @@ import androidx.work.WorkManager
 import com.phonesync.app.data.prefs.SecurePrefs
 import com.phonesync.app.data.repository.PhotoSyncRepository
 import com.phonesync.app.sync.MigrationWorker
+import com.phonesync.app.ui.components.SectionCard
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -55,6 +57,7 @@ fun MigrationScreen(
         workInfos?.state == WorkInfo.State.ENQUEUED
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Library migration") },
@@ -63,6 +66,9 @@ fun MigrationScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
     ) { padding ->
@@ -73,18 +79,34 @@ fun MigrationScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                "For the first 100GB–1TB copy, start a user-initiated migration. " +
-                    "Android may pause long transfers — use Continue to resume. " +
-                    "Uploads are chunked and resume from the last offset.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text("Pending items: $pendingCount", style = MaterialTheme.typography.titleMedium)
-            if (running) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Text("Migration worker: ${workInfos?.state}")
+            SectionCard {
+                Text(
+                    "For the first 100GB–1TB copy, start a user-initiated migration. " +
+                        "Android may pause long transfers — use Continue to resume. " +
+                        "Uploads are chunked and resume from the last offset.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Spacer(Modifier.height(8.dp))
+            SectionCard(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+            ) {
+                Text("Pending items", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "$pendingCount",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                if (running) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Text(
+                        "Migration worker: ${workInfos?.state}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
             Button(
                 enabled = !running,
                 onClick = {
@@ -93,14 +115,20 @@ fun MigrationScreen(
                         MigrationWorker.enqueue(context, allowCellular)
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text(if (pendingCount > 0) "Continue migration" else "Scan & start migration")
             }
             OutlinedButton(
                 enabled = running,
                 onClick = { MigrationWorker.cancel(context) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("Pause / cancel")
             }
@@ -108,6 +136,7 @@ fun MigrationScreen(
                 "Tip: plug in power, stay on Wi‑Fi, and disable battery optimization " +
                     "(see Settings → Samsung battery guidance).",
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

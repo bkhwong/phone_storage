@@ -10,6 +10,13 @@
 
 .PARAMETER Mirror
   If set, use /MIR (deletes files on destination that no longer exist on source).
+
+.PARAMETER DryRun
+  Validate parameters and print the robocopy command without executing it.
+  Does not require the destination drive to exist when -SkipDestinationCheck is also set.
+
+.PARAMETER SkipDestinationCheck
+  With -DryRun, skip creating/checking the destination path (for CI / unit-style checks).
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -18,34 +25,65 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Destination,
 
-    [switch]$Mirror
+    [switch]$Mirror,
+
+    [switch]$DryRun,
+
+    [switch]$SkipDestinationCheck
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path -LiteralPath $Source)) {
-    Write-Error "Source does not exist: $Source"
+function Get-RobocopyArgs {
+    param(
+        [string]$Source,
+        [string]$Destination,
+        [switch]$Mirror
+    )
+    $robocopyArgs = @(
+        $Source,
+        $Destination,
+        "/E",
+        "/R:2",
+        "/W:5",
+        "/FFT",
+        "/Z",
+        "/XD", ".uploads"
+    )
+    if ($Mirror) {
+        $robocopyArgs = @($robocopyArgs | Where-Object { $_ -ne "/E" }) + @("/MIR")
+    }
+    return ,$robocopyArgs
+}
+
+if ([string]::IsNullOrWhiteSpace($Source)) {
+    Write-Error "Source must be a non-empty path."
+}
+if ([string]::IsNullOrWhiteSpace($Destination)) {
+    Write-Error "Destination must be a non-empty path."
+}
+if ($Source -eq $Destination) {
+    Write-Error "Source and Destination must be different paths."
+}
+
+if (-not $DryRun -or -not $SkipDestinationCheck) {
+    if (-not (Test-Path -LiteralPath $Source)) {
+        Write-Error "Source does not exist: $Source"
+    }
+}
+
+$robocopyArgs = Get-RobocopyArgs -Source $Source -Destination $Destination -Mirror:$Mirror
+
+if ($DryRun) {
+    Write-Host "DRY RUN: would run robocopy with args:"
+    Write-Host ("  robocopy " + ($robocopyArgs -join " "))
+    if ($Mirror) {
+        Write-Warning "Mirror mode enabled: files missing on source will be deleted from destination."
+    }
+    exit 0
 }
 
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
-
-$robocopyArgs = @(
-    $Source,
-    $Destination,
-    "/E",          # subdirs including empty
-    "/R:2",        # retries
-    "/W:5",        # wait between retries
-    "/FFT",        # assume FAT file times (2s granularity)
-    "/Z",          # restartable
-    "/XD", ".uploads"  # skip in-progress chunk temps
-)
-
-if ($Mirror) {
-    # Replace /E with /MIR
-    $robocopyArgs = $robocopyArgs | Where-Object { $_ -ne "/E" }
-    $robocopyArgs += "/MIR"
-    Write-Warning "Mirror mode enabled: files missing on source will be deleted from destination."
-}
 
 Write-Host "Backing up:`n  $Source`n-> $Destination"
 

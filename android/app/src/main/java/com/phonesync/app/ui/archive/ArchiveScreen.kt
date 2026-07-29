@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.phonesync.app.data.local.LocalAssetEntity
 import com.phonesync.app.data.repository.PhotoSyncRepository
 import com.phonesync.app.media.MediaDeleteHelper
+import com.phonesync.app.ui.components.SectionCard
 import com.phonesync.app.ui.status.formatBytes
 import kotlinx.coroutines.launch
 
@@ -79,6 +83,7 @@ fun ArchiveScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Free up space") },
@@ -87,6 +92,9 @@ fun ArchiveScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
     ) { padding ->
@@ -96,16 +104,21 @@ fun ArchiveScreen(
                 .padding(padding)
                 .padding(16.dp),
         ) {
-            Text(
-                "These items are verified on your PC. Archiving deletes them from this phone only after the server confirms.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(8.dp))
+            SectionCard {
+                Text(
+                    "These items are verified on your PC. Archiving deletes them from this phone only after the server confirms.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             if (!MediaDeleteHelper.hasManageMedia(context)) {
                 OutlinedButton(
                     onClick = {
                         context.startActivity(MediaDeleteHelper.manageMediaSettingsIntent(context))
                     },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
                 ) {
                     Text("Grant MANAGE_MEDIA for quieter deletes")
                 }
@@ -116,7 +129,10 @@ fun ArchiveScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("${selected.size} selected")
+                Text(
+                    "${selected.size} selected",
+                    style = MaterialTheme.typography.titleMedium,
+                )
                 OutlinedButton(
                     onClick = {
                         selected = if (selected.size == archivable.size) {
@@ -125,6 +141,7 @@ fun ArchiveScreen(
                             archivable.map { it.clientAssetId }.toSet()
                         }
                     },
+                    shape = MaterialTheme.shapes.small,
                 ) {
                     Text(if (selected.size == archivable.size) "Clear" else "Select all")
                 }
@@ -132,7 +149,7 @@ fun ArchiveScreen(
             Spacer(Modifier.height(8.dp))
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(archivable, key = { it.clientAssetId }) { asset ->
                     ArchiveRow(
@@ -188,7 +205,10 @@ fun ArchiveScreen(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("Archive & delete local (${formatBytes(selectedBytes)})")
             }
@@ -202,16 +222,30 @@ private fun ArchiveRow(
     checked: Boolean,
     onToggle: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = MaterialTheme.shapes.medium,
+        onClick = onToggle,
     ) {
-        Checkbox(checked = checked, onCheckedChange = { onToggle() })
-        Column(modifier = Modifier.weight(1f)) {
-            Text(asset.displayName)
-            Text(formatBytes(asset.sizeBytes), style = MaterialTheme.typography.bodySmall)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = checked, onCheckedChange = { onToggle() })
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(asset.displayName, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    formatBytes(asset.sizeBytes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

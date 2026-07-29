@@ -8,18 +8,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BatteryAlert
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -31,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.phonesync.app.data.prefs.SecurePrefs
 import com.phonesync.app.data.repository.PhotoSyncRepository
 import com.phonesync.app.sync.SyncWorker
+import com.phonesync.app.ui.components.SectionCard
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,6 +58,7 @@ fun SettingsScreen(
     val serverUrl by prefs.serverBaseUrl.collectAsStateWithLifecycle(null)
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
@@ -57,6 +67,9 @@ fun SettingsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
     ) { padding ->
@@ -64,41 +77,80 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("Server: ${serverUrl ?: "—"}")
-            Text("Sync interval: $interval minutes")
-            Slider(
-                value = interval.toFloat(),
-                onValueChange = { prefs.setSyncIntervalMinutes(it.toInt()) },
-                valueRange = 15f..240f,
-                steps = 14,
-                onValueChangeFinished = {
-                    SyncWorker.enqueuePeriodic(context, interval, cellular)
-                },
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Allow cellular sync")
-                    Text("Off = Wi‑Fi (unmetered) only")
-                }
-                Switch(
-                    checked = cellular,
-                    onCheckedChange = {
-                        prefs.setAllowCellular(it)
-                        SyncWorker.enqueuePeriodic(context, interval, it)
-                    },
+            SectionCard {
+                Text("Connection", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    serverUrl ?: "—",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onBatteryGuidance, modifier = Modifier.fillMaxWidth()) {
+
+            SectionCard {
+                Text("Sync interval", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "$interval minutes",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Slider(
+                    value = interval.toFloat(),
+                    onValueChange = { prefs.setSyncIntervalMinutes(it.toInt()) },
+                    valueRange = 15f..240f,
+                    steps = 14,
+                    onValueChangeFinished = {
+                        SyncWorker.enqueuePeriodic(context, interval, cellular)
+                    },
+                )
+                Text(
+                    "15 min – 4 hours",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SectionCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Allow cellular sync", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Off = Wi‑Fi (unmetered) only",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = cellular,
+                        onCheckedChange = {
+                            prefs.setAllowCellular(it)
+                            SyncWorker.enqueuePeriodic(context, interval, it)
+                        },
+                    )
+                }
+            }
+
+            OutlinedButton(
+                onClick = onBatteryGuidance,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Icon(Icons.Default.BatteryAlert, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
                 Text("Samsung battery optimization guidance")
             }
-            Spacer(Modifier.height(24.dp))
+
+            Spacer(Modifier.height(8.dp))
+
             Button(
                 onClick = {
                     scope.launch {
@@ -106,10 +158,20 @@ fun SettingsScreen(
                         onUnpaired()
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
             ) {
+                Icon(Icons.Default.LinkOff, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
                 Text("Unpair this device")
             }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

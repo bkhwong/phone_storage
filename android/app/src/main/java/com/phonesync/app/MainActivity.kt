@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -32,16 +33,21 @@ import com.phonesync.app.ui.nav.AppRoute
 import com.phonesync.app.ui.pairing.PairingScreen
 import com.phonesync.app.ui.settings.SettingsScreen
 import com.phonesync.app.ui.status.StatusScreen
+import com.phonesync.app.ui.theme.JakeBlack
 import com.phonesync.app.ui.theme.PhotoSyncTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         val app = application as PhotoSyncApp
         setContent {
             PhotoSyncTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = JakeBlack,
+                ) {
                     PhotoSyncRoot(app)
                 }
             }

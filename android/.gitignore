@@ -11,3 +11,6 @@
 *.apk
 *.ap_
 *.aab
+
+emulator.log
+test-run.log

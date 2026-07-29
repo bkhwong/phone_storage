@@ -37,3 +37,7 @@ Android can send WoL packets from some apps, or a router/script can do it before
 - For daily deltas: wake timer or “turn PC on when home” is enough.
 - For 100GB–1TB migration: leave the PC on and run a user-initiated long transfer from the phone (chunked uploads).
 - Document your PC’s LAN IP and MAC address somewhere private for WoL later.
+
+## Why this is hard to automate
+
+WoL needs BIOS/NIC support and a magic packet on the LAN. Guests Wi-Fi isolation and missing directed-broadcast make this untestable as a unit test in-repo. Manual only; see [testing.md](testing.md).

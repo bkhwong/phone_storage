@@ -1,4 +1,4 @@
-package com.phonesync.app.sync
+﻿package com.phonesync.app.sync
 
 import android.content.Context
 import android.net.Uri
@@ -80,7 +80,7 @@ class UploadEngine(
             }
             sessionId = init.uploadId
             offset = init.offset
-            chunkSize = init.chunkSize.takeIf { it > 0 } ?: DEFAULT_CHUNK_SIZE
+            chunkSize = UploadChunking.resolveChunkSize(init.chunkSize)
             dao.update(
                 asset.copy(
                     uploadSessionId = sessionId,
@@ -102,7 +102,7 @@ class UploadEngine(
             }
             val buffer = ByteArray(chunkSize.toInt().coerceAtMost(8 * 1024 * 1024))
             while (offset < asset.sizeBytes) {
-                val toRead = minOf(buffer.size.toLong(), asset.sizeBytes - offset).toInt()
+                val toRead = UploadChunking.nextReadLength(buffer.size.toLong(), offset, asset.sizeBytes)
                 var readTotal = 0
                 while (readTotal < toRead) {
                     val r = input.read(buffer, readTotal, toRead - readTotal)
@@ -123,7 +123,7 @@ class UploadEngine(
                 if (!response.isSuccessful) {
                     error("Chunk upload failed at offset=$offset code=${response.code()}")
                 }
-                offset += readTotal
+                offset = UploadChunking.advanceOffset(offset, readTotal)
                 dao.update(
                     asset.copy(
                         uploadSessionId = sessionId,

@@ -57,10 +57,27 @@ If `local.properties` is missing, create it with your SDK path:
 sdk.dir=C\:\\Users\\YOU\\AppData\\Local\\Android\\Sdk
 ```
 
+
+## Tests
+
+See [docs/testing.md](../docs/testing.md) for full details (emulator, firewall/WoL limits).
+
+`powershell
+# JVM unit tests (no device)
+.\gradlew.bat test
+
+# Debug APK
+.\gradlew.bat assembleDebug
+
+# Instrumentation (emulator or USB device must be connected)
+.\gradlew.bat connectedDebugAndroidTest
+`
+
+Unit tests live under pp/src/test/java/. Instrumentation smoke under pp/src/androidTest/java/.
 ## First-run checklist
 
 1. Grant photos/videos (+ notifications) permissions
-2. Pair with `http://<pc-lan-ip>:8080` and the PIN from the PC
+2. Pair with `http://<pc-lan-ip>:8787` and the PIN from the PC
 3. Follow **Samsung battery optimization** guidance (Settings or post-pair screen)
 4. For a large library, open **Migration** and leave the phone on power + Wi‑Fi; tap **Continue** if Android pauses the transfer
 5. Use **Free space** only after items show as backed up

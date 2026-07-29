@@ -40,3 +40,7 @@ Remove-NetFirewallRule -DisplayName "Custom Photo Sync Server"
 
 - Do not open this port on your router to the internet for v1.
 - Prefer Private profile only; avoid Domain/Public unless you know you need them.
+
+## Why this is hard to automate
+
+Creating or asserting a firewall rule needs **Administrator** rights and a live Windows Firewall stack. Proving inbound LAN access requires a second device on the same NIC/subnet (CI runners typically cannot). Use the manual verify steps above; see also [testing.md](testing.md).

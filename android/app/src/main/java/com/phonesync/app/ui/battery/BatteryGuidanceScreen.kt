@@ -25,11 +25,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.phonesync.app.data.prefs.SecurePrefs
+import com.phonesync.app.ui.components.SectionCard
+import com.phonesync.app.ui.components.StatusChip
 
 /**
  * Samsung / OEM battery killers make WorkManager unreliable unless the user exempts the app.
@@ -49,6 +52,7 @@ fun BatteryGuidanceScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Battery guidance") },
@@ -57,6 +61,9 @@ fun BatteryGuidanceScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
     ) { padding ->
@@ -68,15 +75,21 @@ fun BatteryGuidanceScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                "Samsung and other OEMs aggressively kill background apps. " +
-                    "Hourly sync will be unreliable until Photo Sync is exempted.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                if (ignoring) "System battery optimization: exempted ✓"
-                else "System battery optimization: still restricted",
-                style = MaterialTheme.typography.titleMedium,
+            SectionCard {
+                Text(
+                    "Samsung and other OEMs aggressively kill background apps. " +
+                        "Hourly sync will be unreliable until Photo Sync is exempted.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            StatusChip(
+                label = if (ignoring) {
+                    "Battery optimization: exempted"
+                } else {
+                    "Battery optimization: still restricted"
+                },
+                positive = ignoring,
             )
             Button(
                 onClick = {
@@ -92,7 +105,10 @@ fun BatteryGuidanceScreen(
                             }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("Open battery optimization settings")
             }
@@ -104,7 +120,10 @@ fun BatteryGuidanceScreen(
                         },
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("App info (Samsung: Battery → Unrestricted)")
             }
@@ -114,23 +133,30 @@ fun BatteryGuidanceScreen(
                         Intent(Intent.ACTION_VIEW, Uri.parse("https://dontkillmyapp.com/samsung")),
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("Open dontkillmyapp.com (Samsung)")
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 "Also: Settings → Apps → Photo Sync → Battery → Unrestricted; " +
                     "disable Sleeping apps / Deep sleeping for this package; " +
                     "allow auto-start if shown.",
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(
                 onClick = {
                     prefs.setBatteryGuidanceSeen(true)
                     onBack()
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("Done")
             }

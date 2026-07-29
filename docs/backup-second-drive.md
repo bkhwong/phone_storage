@@ -39,3 +39,19 @@ Spot-check file counts:
 (Get-ChildItem -Recurse -File $Source | Measure-Object).Count
 (Get-ChildItem -Recurse -File $Destination | Measure-Object).Count
 ```
+
+## Automated checks (lightweight)
+
+Full robocopy needs a real second-drive path. For CI-friendly validation:
+
+`powershell
+powershell -File scripts/test-backup-storage.ps1
+`
+
+Or dry-run without executing robocopy:
+
+`powershell
+.\scripts\backup-storage.ps1 -Source C:\fake -Destination D:\fake -DryRun -SkipDestinationCheck
+`
+
+See [testing.md](testing.md).

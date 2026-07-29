@@ -49,6 +49,7 @@ class UploadSession(Base):
     mime_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
     taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     client_asset_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    relative_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     bytes_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     temp_path: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")

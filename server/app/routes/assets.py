@@ -61,6 +61,7 @@ def create_asset_from_file(
     mime_type: str | None,
     taken_at: datetime | None,
     client_asset_id: str | None,
+    relative_path: str | None = None,
     verify_hash: bool = True,
 ) -> Asset:
     """Shared create path used by simple upload and chunked complete."""
@@ -84,6 +85,7 @@ def create_asset_from_file(
         content_hash=content_hash.lower(),
         original_filename=original_filename,
         taken_at=taken_at,
+        relative_path=relative_path,
     )
     asset_id = new_id()
     abs_path = storage_svc.absolute_storage_path(rel)
@@ -116,6 +118,7 @@ async def upload_asset(
     mime_type: str = Form(...),
     taken_at: str | None = Form(None),
     client_asset_id: str | None = Form(None),
+    relative_path: str | None = Form(None),
     db: Session = Depends(get_db),
     _device: Device = Depends(require_device_token),
 ) -> AssetResponse:
@@ -148,6 +151,7 @@ async def upload_asset(
             mime_type=mime_type or file.content_type,
             taken_at=_parse_taken_at(taken_at),
             client_asset_id=client_asset_id,
+            relative_path=relative_path,
         )
     except HTTPException:
         raise

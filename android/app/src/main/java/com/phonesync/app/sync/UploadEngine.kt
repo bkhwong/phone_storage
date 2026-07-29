@@ -45,6 +45,7 @@ class UploadEngine(
             originalFilename = asset.displayName.toRequestBody(ApiClientFactory.TEXT_PLAIN),
             mimeType = asset.mimeType.toRequestBody(ApiClientFactory.TEXT_PLAIN),
             clientAssetId = asset.clientAssetId.toRequestBody(ApiClientFactory.TEXT_PLAIN),
+            relativePath = asset.relativePath?.toRequestBody(ApiClientFactory.TEXT_PLAIN),
         )
         return UploadResult(response.id)
     }
@@ -71,6 +72,7 @@ class UploadEngine(
                     sizeBytes = asset.sizeBytes,
                     takenAt = formatTakenAt(asset.takenAtEpochMs),
                     clientAssetId = asset.clientAssetId,
+                    relativePath = asset.relativePath,
                 ),
             )
             if (!init.existingAssetId.isNullOrBlank()) {

@@ -1,10 +1,23 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import ClassVar
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # server/ directory (parent of app/)
 _SERVER_DIR = Path(__file__).resolve().parent.parent
+
+# Common Android album locations mirrored under STORAGE_ROOT
+PHONE_SEED_FOLDERS: tuple[str, ...] = (
+    "DCIM/Camera",
+    "Pictures/Screenshots",
+    "Pictures",
+    "Download",
+    "Movies",
+    "WhatsApp/Media/WhatsApp Images",
+    "WhatsApp/Media/WhatsApp Video",
+    "Other",
+)
 
 
 class Settings(BaseSettings):
@@ -21,6 +34,9 @@ class Settings(BaseSettings):
     port: int = 8787
     pair_pin_reusable: bool = True
     version: str = "0.1.0"
+
+    # Not loaded from env — kept on the class for callers that prefer Settings.*
+    phone_seed_folders: ClassVar[tuple[str, ...]] = PHONE_SEED_FOLDERS
 
     def resolve_paths(self) -> None:
         """Make relative paths resolve against the server directory."""
@@ -39,6 +55,8 @@ class Settings(BaseSettings):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         (self.storage_root / ".uploads").mkdir(parents=True, exist_ok=True)
         (self.storage_root / ".thumbs").mkdir(parents=True, exist_ok=True)
+        for folder in PHONE_SEED_FOLDERS:
+            (self.storage_root / folder).mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache

@@ -17,6 +17,8 @@ data class MediaStoreItem(
     val sizeBytes: Long,
     val takenAtEpochMs: Long?,
     val dateAddedEpochMs: Long,
+    /** MediaStore RELATIVE_PATH, e.g. "DCIM/Camera/" — mirrors phone folders on PC. */
+    val relativePath: String?,
 )
 
 object HashUtil {
@@ -61,6 +63,7 @@ class MediaStoreScanner(private val context: Context) {
             MediaStore.MediaColumns.SIZE,
             MediaStore.MediaColumns.DATE_TAKEN,
             MediaStore.MediaColumns.DATE_ADDED,
+            MediaStore.MediaColumns.RELATIVE_PATH,
         )
         val items = mutableListOf<MediaStoreItem>()
         context.contentResolver.query(
@@ -76,12 +79,18 @@ class MediaStoreScanner(private val context: Context) {
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
             val takenCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN)
             val addedCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
+            val pathCol = cursor.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
                 val size = cursor.getLong(sizeCol)
                 if (size <= 0L) continue
                 val taken = cursor.getLong(takenCol).takeIf { it > 0L }
                 val addedSec = cursor.getLong(addedCol)
+                val relativePath = if (pathCol >= 0 && !cursor.isNull(pathCol)) {
+                    cursor.getString(pathCol)
+                } else {
+                    null
+                }
                 items += MediaStoreItem(
                     mediaStoreId = id,
                     contentUri = ContentUris.withAppendedId(collection, id),
@@ -90,6 +99,7 @@ class MediaStoreScanner(private val context: Context) {
                     sizeBytes = size,
                     takenAtEpochMs = taken,
                     dateAddedEpochMs = addedSec * 1000L,
+                    relativePath = relativePath,
                 )
             }
         }

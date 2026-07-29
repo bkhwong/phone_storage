@@ -29,7 +29,7 @@ Response: `{ "device_token": "...", "device_id": "..." }`
 
 `POST /api/assets/upload` (multipart)
 
-Parts: `file`, `content_hash`, `original_filename`, `mime_type`, optional `taken_at` (ISO-8601), optional `client_asset_id`.
+Parts: `file`, `content_hash`, `original_filename`, `mime_type`, optional `taken_at` (ISO-8601), optional `client_asset_id`, optional `relative_path` (MediaStore album path, e.g. `DCIM/Camera/`).
 
 Response (asset):
 
@@ -65,7 +65,8 @@ Request (Android names; server also accepts legacy `size` / `filename` / `mime`)
   "original_filename": "IMG.jpg",
   "mime_type": "image/jpeg",
   "taken_at": "2026-07-29T12:00:00Z",
-  "client_asset_id": "ms:123"
+  "client_asset_id": "ms:123",
+  "relative_path": "DCIM/Camera/"
 }
 ```
 
@@ -141,4 +142,4 @@ Asset fields use `size_bytes` (not `size`).
 ---
 
 States: `backed_up` | `archived`.
-
+

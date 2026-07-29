@@ -68,6 +68,7 @@ def init_upload(
         mime_type=body.mime_type,
         taken_at=_parse_taken_at(body.taken_at),
         client_asset_id=body.client_asset_id,
+        relative_path=body.relative_path,
         bytes_received=0,
         temp_path=temp.as_posix(),
         status="open",
@@ -177,6 +178,7 @@ def complete_upload(
         mime_type=session.mime_type,
         taken_at=session.taken_at,
         client_asset_id=session.client_asset_id,
+        relative_path=session.relative_path,
         verify_hash=True,
     )
     session.status = "completed"

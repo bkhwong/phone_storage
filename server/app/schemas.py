@@ -70,6 +70,8 @@ class UploadInitRequest(BaseModel):
     )
     taken_at: str | None = None
     client_asset_id: str | None = None
+    # Android MediaStore RELATIVE_PATH, e.g. "DCIM/Camera/" or "Pictures/Screenshots/"
+    relative_path: str | None = None
 
 
 class UploadInitResponse(BaseModel):

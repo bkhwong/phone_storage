@@ -49,6 +49,7 @@ def _migrate_sqlite(engine) -> None:
     statements = [
         "ALTER TABLE upload_sessions ADD COLUMN taken_at DATETIME",
         "ALTER TABLE upload_sessions ADD COLUMN client_asset_id VARCHAR(128)",
+        "ALTER TABLE upload_sessions ADD COLUMN relative_path VARCHAR(512)",
     ]
     with engine.begin() as conn:
         for sql in statements:

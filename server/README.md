@@ -38,7 +38,7 @@ curl -X POST http://127.0.0.1:8787/api/pair -H "Content-Type: application/json" 
 
 | Env var | Meaning |
 |---------|---------|
-| `STORAGE_ROOT` | Folder for originals (`YYYY/MM/...`) plus `.thumbs` / `.uploads` |
+| `STORAGE_ROOT` | Folder for originals (phone-like albums under e.g. `D:\Pictures\Cloud`) plus `.thumbs` / `.uploads` |
 | `DB_PATH` | SQLite database file |
 | `PAIR_PIN` | PIN the Android app submits to `/api/pair` |
 | `PAIR_PIN_REUSABLE` | `true` = multiple devices may pair; `false` = one-time PIN |

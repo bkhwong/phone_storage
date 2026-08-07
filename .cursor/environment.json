@@ -1,0 +1,17 @@
+{
+  "name": "Photo Sync server",
+  "install": "bash scripts/cloud-install.sh",
+  "terminals": [
+    {
+      "name": "server",
+      "command": "cd server && ./.venv/bin/python -m app",
+      "description": "FastAPI photo-sync server on http://0.0.0.0:8787 (health: /api/health)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "photo-sync-api",
+      "port": 8787
+    }
+  ]
+}

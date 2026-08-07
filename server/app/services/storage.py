@@ -1,12 +1,19 @@
 import hashlib
 import re
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
 
 from ..config import Settings, get_settings
 
 _TRAVERSAL = re.compile(r"(^|/|\\)\.\.(/|\\|$)")
+
+# Single-process local server: a plain lock around "pick a free destination path, then
+# move the file there" closes the TOCTOU window where two concurrent uploads with
+# different content could both see the same slot as free and race each other (last
+# writer wins, other asset's DB row silently points at the wrong bytes).
+_place_file_lock = threading.Lock()
 
 
 def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
@@ -62,23 +69,6 @@ def storage_relative_path(
     # Prefer original name; disambiguate collisions with a short hash prefix.
     name = f"{stem}{suffix}" if suffix else stem
     return folder / name
-
-
-def collision_safe_relative_path(
-    dest_rel: Path,
-    content_hash: str,
-    settings: Settings,
-) -> Path:
-    """If dest exists with different content, append short hash before suffix."""
-    dest = settings.storage_root / dest_rel
-    if not dest.exists():
-        return dest_rel
-    # Same destination already present — caller decides whether to keep.
-    short = content_hash[:8]
-    stem = dest_rel.stem
-    suffix = dest_rel.suffix
-    alt = dest_rel.with_name(f"{stem}_{short}{suffix}")
-    return alt
 
 
 def resolve_destination_for_hash(
@@ -179,7 +169,12 @@ def place_file(
     relative_path: str | None = None,
     settings: Settings | None = None,
 ) -> Path:
-    """Move/copy src into final storage location; returns relative path."""
+    """Move/copy src into final storage location; returns relative path.
+
+    Holds a process-wide lock across "resolve a free destination" + "move the file
+    there" so two concurrent uploads can't both claim the same path (see
+    _place_file_lock).
+    """
     settings = settings or get_settings()
     rel = storage_relative_path(
         content_hash,
@@ -187,36 +182,13 @@ def place_file(
         taken_at=taken_at,
         relative_path=relative_path,
     )
-    final_rel, reuse_existing = resolve_destination_for_hash(rel, content_hash, settings)
-    dest = settings.storage_root / final_rel
-    if reuse_existing:
-        if src.resolve() != dest.resolve():
-            src.unlink(missing_ok=True)
+    with _place_file_lock:
+        final_rel, reuse_existing = resolve_destination_for_hash(rel, content_hash, settings)
+        dest = settings.storage_root / final_rel
+        if reuse_existing:
+            if src.resolve() != dest.resolve():
+                src.unlink(missing_ok=True)
+            return final_rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), str(dest))
         return final_rel
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(src), str(dest))
-    return final_rel
-
-
-def write_bytes_to_final(
-    data: bytes,
-    content_hash: str,
-    original_filename: str | None,
-    taken_at: datetime | None = None,
-    relative_path: str | None = None,
-    settings: Settings | None = None,
-) -> Path:
-    settings = settings or get_settings()
-    rel = storage_relative_path(
-        content_hash,
-        original_filename,
-        taken_at=taken_at,
-        relative_path=relative_path,
-    )
-    final_rel, reuse_existing = resolve_destination_for_hash(rel, content_hash, settings)
-    if reuse_existing:
-        return final_rel
-    dest = settings.storage_root / final_rel
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(data)
-    return final_rel

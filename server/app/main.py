@@ -1,17 +1,31 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import get_settings
+from .config import Settings, get_settings
 from .db import init_db
 from .routes import assets, health, pair, uploads
+
+logger = logging.getLogger(__name__)
+
+
+def _warn_if_using_default_pin(settings: Settings) -> None:
+    if settings.pair_pin == Settings.model_fields["pair_pin"].default:
+        logger.warning(
+            "PAIR_PIN is unset and using the built-in default (%r). Anyone who can reach "
+            "this server on the network can pair a device with it. Set PAIR_PIN in "
+            "server/.env before exposing this beyond a trusted LAN.",
+            settings.pair_pin,
+        )
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings = get_settings()
     settings.ensure_dirs()
+    _warn_if_using_default_pin(settings)
     init_db()
     yield
 

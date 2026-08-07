@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     # Disk-fill DoS guard: reject uploads (simple + resumable) declaring/reaching
     # a size above this. Generous default for a local LAN photo/video backup server.
     max_upload_size_bytes: int = 20 * 1024 * 1024 * 1024  # 20 GiB
+    # Memory-exhaustion guard: a single PUT .../chunk body is read fully into memory
+    # (see _read_body_capped), so cap it well below max_upload_size_bytes regardless of
+    # the declared total asset size. Generous relative to the 4 MiB DEFAULT_CHUNK_SIZE
+    # clients are told to use, to tolerate custom clients choosing a larger chunk size.
+    max_chunk_bytes: int = 16 * 1024 * 1024  # 16 MiB
 
     # Not loaded from env — kept on the class for callers that prefer Settings.*
     phone_seed_folders: ClassVar[tuple[str, ...]] = PHONE_SEED_FOLDERS

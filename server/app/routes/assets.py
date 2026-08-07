@@ -1,11 +1,15 @@
+import logging
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
+
+logger = logging.getLogger(__name__)
 
 from ..auth import new_id, require_device_token
 from ..config import get_settings
@@ -50,6 +54,9 @@ def _asset_response(asset: Asset) -> AssetResponse:
 
 
 def _parse_taken_at(value: str | None) -> datetime | None:
+    """Best-effort ISO-8601 parse. Deliberately non-fatal: `taken_at` is advisory
+    photo-timestamp metadata, not something worth failing an entire upload over, so an
+    unparsable value silently becomes None rather than rejecting the request."""
     if not value:
         return None
     raw = value.strip()
@@ -115,7 +122,18 @@ def create_asset_from_file(
         client_asset_id=client_asset_id,
     )
     db.add(asset)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Another concurrent request for the same content_hash won the race between our
+        # own "does it already exist" check and this commit. Our bytes are already safely
+        # deduped on disk by place_file (same hash -> same destination); fall back to the
+        # row the other request created instead of surfacing a 500.
+        db.rollback()
+        winner = db.query(Asset).filter(Asset.content_hash == content_hash.lower()).first()
+        if winner:
+            return winner
+        raise
     db.refresh(asset)
     return asset
 
@@ -182,9 +200,10 @@ async def upload_asset(
         raise
     except Exception as exc:
         tmp_path.unlink(missing_ok=True)
+        logger.exception("Unexpected error finalizing upload for %s", original_filename)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="Internal error while saving the upload",
         ) from exc
 
     return _asset_response(asset)

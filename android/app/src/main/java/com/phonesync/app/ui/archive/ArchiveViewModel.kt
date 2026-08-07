@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ArchiveUiState(
@@ -42,12 +43,23 @@ class ArchiveViewModel(private val repository: PhotoSyncRepository) : ViewModel(
         busy,
         message,
     ) { archivable, selectedIds, isBusy, msg ->
-        // Drop selections for items that left the archivable set (e.g. already freed).
+        // Drop selections for items that left the archivable set (e.g. already freed) —
+        // read-only here; the actual reconciliation happens in the init{} collector below
+        // so this transform stays a pure function of its inputs.
         val validIds = archivable.map { it.clientAssetId }.toSet()
-        val reconciled = selectedIds.intersect(validIds)
-        if (reconciled != selectedIds) selected.value = reconciled
-        ArchiveUiState(archivable, reconciled, isBusy, msg)
+        ArchiveUiState(archivable, selectedIds.intersect(validIds), isBusy, msg)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ArchiveUiState())
+
+    init {
+        // Keep `selected` itself in sync (not just the derived UI state) so a stale id
+        // doesn't get "resurrected" into the selection if it reappears later.
+        viewModelScope.launch {
+            repository.observeArchivable().collect { archivable ->
+                val validIds = archivable.map { it.clientAssetId }.toSet()
+                selected.update { it.intersect(validIds) }
+            }
+        }
+    }
 
     fun toggle(id: String) {
         selected.value = SelectionReducer.toggle(selected.value, id)

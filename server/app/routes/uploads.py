@@ -1,9 +1,12 @@
-﻿from typing import Annotated
+import threading
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from ..auth import new_id, require_device_token
+from ..config import get_settings
 from ..db import get_db
 from ..models import Asset, Device, UploadSession
 from ..schemas import (
@@ -18,6 +21,51 @@ from .assets import _asset_response, _parse_taken_at, create_asset_from_file
 
 router = APIRouter(tags=["uploads"], dependencies=[Depends(require_device_token)])
 
+# Serialize chunk writes per upload_id: this is a single-process local server, so an
+# in-memory lock per upload is sufficient to prevent two concurrent PUTs from both
+# passing the offset check and corrupting the temp file.
+_locks_guard = threading.Lock()
+_upload_locks: dict[str, threading.Lock] = {}
+
+
+def _lock_for(upload_id: str) -> threading.Lock:
+    with _locks_guard:
+        lock = _upload_locks.get(upload_id)
+        if lock is None:
+            lock = threading.Lock()
+            _upload_locks[upload_id] = lock
+        return lock
+
+
+def _forget_lock(upload_id: str) -> None:
+    with _locks_guard:
+        _upload_locks.pop(upload_id, None)
+
+
+class _ChunkOffsetConflict(Exception):
+    """Raised (under the per-upload lock) when the on-disk file size doesn't match
+    the offset the caller expects to write at: either a real offset mismatch or two
+    racing requests for the same offset."""
+
+    def __init__(self, actual_size: int):
+        self.actual_size = actual_size
+
+
+def _write_chunk_at_offset(temp_path, offset: int, data: bytes, upload_id: str) -> int:
+    """Write `data` at `offset` in temp_path, seeking rather than appending, so
+    concurrent/duplicate requests can't corrupt the file. Must run off the event
+    loop (it does blocking disk I/O and lock acquisition)."""
+    lock = _lock_for(upload_id)
+    with lock:
+        actual_size = temp_path.stat().st_size if temp_path.exists() else 0
+        if actual_size != offset:
+            raise _ChunkOffsetConflict(actual_size)
+        with temp_path.open("r+b") as f:
+            f.seek(offset)
+            f.write(data)
+            f.truncate(offset + len(data))
+        return offset + len(data)
+
 
 @router.post("/api/uploads/init", response_model=UploadInitResponse)
 def init_upload(
@@ -28,6 +76,16 @@ def init_upload(
     content_hash = body.content_hash.lower()
     if body.size_bytes < 0:
         raise HTTPException(status_code=400, detail="size_bytes must be >= 0")
+
+    settings = get_settings()
+    if body.size_bytes > settings.max_upload_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=(
+                f"size_bytes ({body.size_bytes}) exceeds max allowed upload size "
+                f"({settings.max_upload_size_bytes} bytes)"
+            ),
+        )
 
     existing = db.query(Asset).filter(Asset.content_hash == content_hash).first()
     if existing:
@@ -115,11 +173,26 @@ async def put_chunk(
             detail="chunk would exceed declared size",
         )
 
-    temp = storage_svc.upload_temp_path(upload_id)
-    with temp.open("ab") as f:
-        f.write(body)
+    settings = get_settings()
+    if session.bytes_received + len(body) > settings.max_upload_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="upload exceeds max allowed size",
+        )
 
-    session.bytes_received += len(body)
+    temp = storage_svc.upload_temp_path(upload_id)
+    try:
+        new_size = await run_in_threadpool(_write_chunk_at_offset, temp, offset, body, upload_id)
+    except _ChunkOffsetConflict as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "offset mismatch (concurrent write or drift detected)",
+                "expected_offset": exc.actual_size,
+            },
+        ) from exc
+
+    session.bytes_received = new_size
     db.commit()
     return {
         "upload_id": upload_id,
@@ -129,7 +202,7 @@ async def put_chunk(
 
 
 @router.post("/api/uploads/{upload_id}/complete", response_model=AssetResponse)
-def complete_upload(
+async def complete_upload(
     upload_id: str,
     db: Session = Depends(get_db),
     _device: Device = Depends(require_device_token),
@@ -138,6 +211,11 @@ def complete_upload(
     session = db.query(UploadSession).filter(UploadSession.id == upload_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Upload session not found")
+    if session.status == "aborted":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Upload session was aborted (e.g. hash mismatch); call init again",
+        )
     if session.status == "completed":
         asset = (
             db.query(Asset)
@@ -169,21 +247,54 @@ def complete_upload(
     if not temp.exists():
         raise HTTPException(status_code=404, detail="Temp upload file missing")
 
-    asset = create_asset_from_file(
-        db,
-        src_path=temp,
-        content_hash=session.content_hash,
-        size=session.size,
-        original_filename=session.filename,
-        mime_type=session.mime_type,
-        taken_at=session.taken_at,
-        client_asset_id=session.client_asset_id,
-        relative_path=session.relative_path,
-        verify_hash=True,
-    )
+    try:
+        asset = await run_in_threadpool(
+            create_asset_from_file,
+            db,
+            src_path=temp,
+            content_hash=session.content_hash,
+            size=session.size,
+            original_filename=session.filename,
+            mime_type=session.mime_type,
+            taken_at=session.taken_at,
+            client_asset_id=session.client_asset_id,
+            relative_path=session.relative_path,
+            verify_hash=True,
+        )
+    except HTTPException:
+        # Don't leave the session stuck "open" forever (e.g. hash mismatch already
+        # deleted the temp file) -- abort it so a fresh init starts a clean session.
+        session.status = "aborted"
+        db.commit()
+        _forget_lock(upload_id)
+        raise
+
     session.status = "completed"
     db.commit()
+    _forget_lock(upload_id)
     return _asset_response(asset)
+
+
+@router.post("/api/uploads/{upload_id}/abort")
+def abort_upload(
+    upload_id: str,
+    db: Session = Depends(get_db),
+    _device: Device = Depends(require_device_token),
+):
+    session = db.query(UploadSession).filter(UploadSession.id == upload_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+    if session.status == "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Upload already completed; cannot abort",
+        )
+    if session.status != "aborted":
+        session.status = "aborted"
+        db.commit()
+    storage_svc.upload_temp_path(upload_id).unlink(missing_ok=True)
+    _forget_lock(upload_id)
+    return {"upload_id": upload_id, "status": "aborted"}
 
 
 @router.post("/api/assets/upload/chunk")

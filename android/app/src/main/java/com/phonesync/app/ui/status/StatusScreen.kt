@@ -1,21 +1,20 @@
 package com.phonesync.app.ui.status
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -23,10 +22,10 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,13 +45,9 @@ import com.phonesync.app.data.repository.PhotoSyncRepository
 import com.phonesync.app.data.repository.StatusSnapshot
 import com.phonesync.app.sync.SyncWorker
 import com.phonesync.app.ui.components.EmptyHint
-import com.phonesync.app.ui.components.GlassPanel
-import com.phonesync.app.ui.components.GlassScene
 import com.phonesync.app.ui.components.IconActionTile
+import com.phonesync.app.ui.components.SectionCard
 import com.phonesync.app.ui.components.StatusChip
-import com.phonesync.app.ui.theme.JakeGray
-import com.phonesync.app.ui.theme.JakeWhite
-import com.phonesync.app.ui.theme.JakeYellow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -76,63 +71,49 @@ fun StatusScreen(
     )
     var status by remember { mutableStateOf(baseStatus) }
     val allowCellular by prefs.allowCellular.collectAsStateWithLifecycle(false)
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     LaunchedEffect(baseStatus) {
         status = repository.enrichStatus(baseStatus)
     }
 
-    GlassScene {
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            "PHOTO SYNC",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = JakeYellow,
-                        )
-                    },
-                    actions = {
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    runCatching { repository.scanAndReconcileLocal() }
-                                    SyncWorker.enqueueNow(context, allowCellular)
-                                    status = repository.enrichStatus(repository.observeStatus().first())
-                                }
-                            },
-                        ) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = "Sync now",
-                                tint = JakeWhite,
-                            )
-                        }
-                        IconButton(onClick = onSettings) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = JakeWhite,
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = JakeYellow,
-                        actionIconContentColor = JakeWhite,
-                    ),
-                )
-            },
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp),
-            ) {
-                StatusCard(status)
-                Spacer(Modifier.height(16.dp))
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = { Text("Photo Sync") },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                runCatching { repository.scanAndReconcileLocal() }
+                                SyncWorker.enqueueNow(context, allowCellular)
+                                status = repository.enrichStatus(repository.observeStatus().first())
+                            }
+                        },
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Sync now")
+                    }
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(
+                top = padding.calculateTopPadding() + 8.dp,
+                bottom = padding.calculateBottomPadding() + 16.dp,
+                start = 16.dp,
+                end = 16.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item { StatusCard(status) }
+            item {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -150,7 +131,8 @@ fun StatusScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                Spacer(Modifier.height(10.dp))
+            }
+            item {
                 IconActionTile(
                     icon = Icons.Default.Storage,
                     label = "Migration (large library)",
@@ -158,25 +140,26 @@ fun StatusScreen(
                     modifier = Modifier.fillMaxWidth(),
                     filled = true,
                 )
-                Spacer(Modifier.height(22.dp))
+            }
+            item {
                 Text(
-                    "PENDING UPLOADS",
+                    "Pending uploads",
                     style = MaterialTheme.typography.titleMedium,
-                    color = JakeWhite,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 12.dp),
                 )
-                Spacer(Modifier.height(8.dp))
-                if (pending.isEmpty()) {
+            }
+            if (pending.isEmpty()) {
+                item {
                     EmptyHint(
                         icon = Icons.Default.CheckCircle,
                         title = "All clear",
                         body = "Nothing waiting — scanned media is backed up or idle.",
                     )
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(pending.take(40), key = { it.clientAssetId }) { asset ->
-                            PendingRow(asset)
-                        }
-                    }
+                }
+            } else {
+                items(pending.take(40), key = { it.clientAssetId }) { asset ->
+                    PendingRow(asset)
                 }
             }
         }
@@ -196,7 +179,7 @@ private fun StatusCard(status: StatusSnapshot) {
         null -> Icons.AutoMirrored.Filled.HelpOutline
     }
 
-    GlassPanel {
+    SectionCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -205,7 +188,7 @@ private fun StatusCard(status: StatusSnapshot) {
             Icon(
                 imageVector = statusIcon,
                 contentDescription = null,
-                tint = JakeYellow,
+                tint = MaterialTheme.colorScheme.primary,
             )
         }
         Spacer(Modifier.height(4.dp))
@@ -229,27 +212,31 @@ private fun StatLine(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            label.uppercase(),
+            label,
             style = MaterialTheme.typography.labelMedium,
-            color = JakeGray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             value,
             style = MaterialTheme.typography.bodyMedium,
-            color = JakeWhite,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
 
 @Composable
 private fun PendingRow(asset: LocalAssetEntity) {
-    GlassPanel {
-        Text(asset.displayName, style = MaterialTheme.typography.titleMedium, color = JakeWhite)
+    SectionCard {
+        Text(
+            asset.displayName,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Text(
             "${asset.syncState.name.lowercase()} · ${formatBytes(asset.sizeBytes)}" +
                 (asset.lastError?.let { " · $it" } ?: ""),
             style = MaterialTheme.typography.bodySmall,
-            color = JakeGray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

@@ -2,4 +2,6 @@
 <resources>
     <color name="ic_launcher_background">#161616</color>
     <color name="seed">#FFD600</color>
+    <!-- Matches the light static-fallback background tone in ui/theme/Color.kt -->
+    <color name="splash_background">#FFF9F9FF</color>
 </resources>

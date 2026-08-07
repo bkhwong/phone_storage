@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -118,7 +119,7 @@ fun MigrationScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = CircleShape,
             ) {
                 Text(if (pendingCount > 0) "Continue migration" else "Scan & start migration")
             }
@@ -128,7 +129,7 @@ fun MigrationScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = CircleShape,
             ) {
                 Text("Pause / cancel")
             }

@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     port: int = 8787
     pair_pin_reusable: bool = True
     version: str = "0.1.0"
+    # Disk-fill DoS guard: reject uploads (simple + resumable) declaring/reaching
+    # a size above this. Generous default for a local LAN photo/video backup server.
+    max_upload_size_bytes: int = 20 * 1024 * 1024 * 1024  # 20 GiB
 
     # Not loaded from env — kept on the class for callers that prefer Settings.*
     phone_seed_folders: ClassVar[tuple[str, ...]] = PHONE_SEED_FOLDERS

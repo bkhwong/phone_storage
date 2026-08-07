@@ -9,8 +9,19 @@ import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import java.util.UUID
 
+/**
+ * MediaStore.Images and MediaStore.Video each have their own independent `_ID`
+ * numeric space, so a bare `_ID` is not globally unique — it must always be paired
+ * with which collection it came from.
+ */
+enum class MediaKind {
+    IMAGE,
+    VIDEO,
+}
+
 data class MediaStoreItem(
     val mediaStoreId: Long,
+    val mediaKind: MediaKind,
     val contentUri: Uri,
     val displayName: String,
     val mimeType: String,
@@ -42,7 +53,12 @@ object HashUtil {
 }
 
 object ClientAssetIds {
-    fun forMediaStore(mediaStoreId: Long): String = "ms_$mediaStoreId"
+    /**
+     * Namespaced by [MediaKind] because MediaStore.Images and MediaStore.Video `_ID`
+     * columns are independent numeric spaces — a bare id can collide across kinds.
+     */
+    fun forMediaStore(mediaKind: MediaKind, mediaStoreId: Long): String =
+        "ms_${mediaKind.name.lowercase()}_$mediaStoreId"
 
     fun random(): String = UUID.randomUUID().toString()
 }
@@ -50,12 +66,12 @@ object ClientAssetIds {
 class MediaStoreScanner(private val context: Context) {
 
     suspend fun scanAll(): List<MediaStoreItem> = withContext(Dispatchers.IO) {
-        val images = queryCollection(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        val videos = queryCollection(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-        (images + videos).distinctBy { it.mediaStoreId }
+        val images = queryCollection(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaKind.IMAGE)
+        val videos = queryCollection(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaKind.VIDEO)
+        (images + videos).distinctBy { it.mediaKind to it.mediaStoreId }
     }
 
-    private fun queryCollection(collection: Uri): List<MediaStoreItem> {
+    private fun queryCollection(collection: Uri, mediaKind: MediaKind): List<MediaStoreItem> {
         val projection = arrayOf(
             MediaStore.MediaColumns._ID,
             MediaStore.MediaColumns.DISPLAY_NAME,
@@ -93,6 +109,7 @@ class MediaStoreScanner(private val context: Context) {
                 }
                 items += MediaStoreItem(
                     mediaStoreId = id,
+                    mediaKind = mediaKind,
                     contentUri = ContentUris.withAppendedId(collection, id),
                     displayName = cursor.getString(nameCol) ?: "media_$id",
                     mimeType = cursor.getString(mimeCol) ?: "application/octet-stream",

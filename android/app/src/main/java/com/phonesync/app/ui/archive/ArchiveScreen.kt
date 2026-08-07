@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -118,7 +119,7 @@ fun ArchiveScreen(
                         context.startActivity(MediaDeleteHelper.manageMediaSettingsIntent(context))
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = CircleShape,
                 ) {
                     Text("Grant MANAGE_MEDIA for quieter deletes")
                 }
@@ -141,7 +142,7 @@ fun ArchiveScreen(
                             archivable.map { it.clientAssetId }.toSet()
                         }
                     },
-                    shape = MaterialTheme.shapes.small,
+                    shape = CircleShape,
                 ) {
                     Text(if (selected.size == archivable.size) "Clear" else "Select all")
                 }
@@ -208,7 +209,7 @@ fun ArchiveScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = CircleShape,
             ) {
                 Text("Archive & delete local (${formatBytes(selectedBytes)})")
             }

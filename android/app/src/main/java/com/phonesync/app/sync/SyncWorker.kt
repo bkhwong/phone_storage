@@ -77,9 +77,11 @@ class SyncWorker(
                     if (allowCellular) NetworkType.CONNECTED else NetworkType.UNMETERED,
                 )
                 .build()
+            // Not expedited: SyncWorker never calls setForeground/getForegroundInfo, so an
+            // expedited request here would just silently fall back to normal work anyway
+            // (RUN_AS_NON_EXPEDITED_WORK_REQUEST) — plain enqueueing is simpler and equivalent.
             val request = OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(constraints)
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 UNIQUE_ONESHOT,

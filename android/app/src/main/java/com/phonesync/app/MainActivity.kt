@@ -9,17 +9,22 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -33,20 +38,29 @@ import com.phonesync.app.ui.nav.AppRoute
 import com.phonesync.app.ui.pairing.PairingScreen
 import com.phonesync.app.ui.settings.SettingsScreen
 import com.phonesync.app.ui.status.StatusScreen
-import com.phonesync.app.ui.theme.JakeBlack
 import com.phonesync.app.ui.theme.PhotoSyncTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         val app = application as PhotoSyncApp
         setContent {
             PhotoSyncTheme {
+                // Status/nav bar icon contrast must follow whichever mode the dynamic Material
+                // You theme resolved to (isSystemInDarkTheme()), not a hardcoded value — otherwise
+                // e.g. light mode would render dark status bar icons on a light status bar.
+                val darkTheme = isSystemInDarkTheme()
+                val view = LocalView.current
+                SideEffect {
+                    val insetsController = WindowCompat.getInsetsController(window, view)
+                    insetsController.isAppearanceLightStatusBars = !darkTheme
+                    insetsController.isAppearanceLightNavigationBars = !darkTheme
+                }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = JakeBlack,
+                    color = MaterialTheme.colorScheme.background,
                 ) {
                     PhotoSyncRoot(app)
                 }
@@ -71,21 +85,26 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { result ->
-        permissionsReady = result.values.any { it } || hasMediaPermissions(context)
+        // Notifications are best-effort; only the media permissions are required to proceed,
+        // and they must ALL be granted (a partial grant is not "ready").
+        permissionsReady = hasMediaPermissions(context)
     }
 
     LaunchedEffect(Unit) {
         if (!permissionsReady) {
-            permissionLauncher.launch(requiredPermissions())
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
+            // Request every needed permission in a single launch — issuing a second launch
+            // call on the same launcher while the first is in flight cancels it.
+            val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS,
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                emptyArray()
             }
+            permissionLauncher.launch(requiredPermissions() + notificationPermission)
         }
     }
 

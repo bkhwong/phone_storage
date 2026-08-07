@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -108,7 +109,7 @@ fun BatteryGuidanceScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = CircleShape,
             ) {
                 Text("Open battery optimization settings")
             }
@@ -123,7 +124,7 @@ fun BatteryGuidanceScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = CircleShape,
             ) {
                 Text("App info (Samsung: Battery → Unrestricted)")
             }
@@ -136,7 +137,7 @@ fun BatteryGuidanceScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = CircleShape,
             ) {
                 Text("Open dontkillmyapp.com (Samsung)")
             }
@@ -156,7 +157,7 @@ fun BatteryGuidanceScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = CircleShape,
             ) {
                 Text("Done")
             }

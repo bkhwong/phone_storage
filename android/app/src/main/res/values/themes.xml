@@ -1,4 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PhotoSync" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+        Light-mode base. There's no framework "android:Theme...DayNight" family (DayNight is an
+        AppCompat concept, and this app doesn't depend on AppCompat) — so day/night-awareness is
+        done the same way the framework itself does it: a values/ vs. values-night/ resource
+        split for this same style name, each pointing at the matching light/dark platform parent
+        and window background. This keeps the pre-Compose window chrome in sync with whichever
+        mode the dynamic Material You theme (ui/theme/Theme.kt) resolves to via
+        isSystemInDarkTheme(), avoiding a light/dark flash on cold start.
+    -->
+    <style name="Theme.PhotoSync" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+
+    <!-- Cold-start splash screen, shown before the first Compose frame draws. -->
+    <style name="Theme.PhotoSync.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.PhotoSync</item>
+    </style>
 </resources>

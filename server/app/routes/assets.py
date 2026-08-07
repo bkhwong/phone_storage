@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from ..auth import new_id, require_device_token
 from ..config import get_settings
@@ -22,6 +23,15 @@ from ..services import storage as storage_svc
 from ..services import thumbs as thumbs_svc
 
 router = APIRouter(tags=["assets"], dependencies=[Depends(require_device_token)])
+
+
+def _safe_absolute_path(relative: str, not_found_detail: str = "Not found") -> Path:
+    """absolute_storage_path, but a path-containment violation becomes a 404
+    instead of an unhandled 500 (defense in depth for read paths)."""
+    try:
+        return storage_svc.absolute_storage_path(relative)
+    except storage_svc.PathContainmentError as exc:
+        raise HTTPException(status_code=404, detail=not_found_detail) from exc
 
 
 def _asset_response(asset: Asset) -> AssetResponse:
@@ -88,7 +98,7 @@ def create_asset_from_file(
         relative_path=relative_path,
     )
     asset_id = new_id()
-    abs_path = storage_svc.absolute_storage_path(rel)
+    abs_path = _safe_absolute_path(rel.as_posix(), "Placed file escaped storage root")
     thumb_abs = storage_svc.thumb_path_for(asset_id)
     thumbs_svc.generate_thumbnail(abs_path, thumb_abs, mime_type=mime_type)
 
@@ -129,20 +139,35 @@ async def upload_asset(
 
     settings = get_settings()
     suffix = Path(original_filename or file.filename or "bin").suffix
-    with tempfile.NamedTemporaryFile(
-        delete=False, dir=settings.storage_root / ".uploads", suffix=suffix
-    ) as tmp:
-        tmp_path = Path(tmp.name)
-        size = 0
-        while True:
-            chunk = await file.read(8 * 1024 * 1024)
-            if not chunk:
-                break
-            tmp.write(chunk)
-            size += len(chunk)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            delete=False, dir=settings.storage_root / ".uploads", suffix=suffix
+        ) as tmp:
+            tmp_path = Path(tmp.name)
+            size = 0
+            while True:
+                chunk = await file.read(8 * 1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > settings.max_upload_size_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                        detail="upload exceeds max allowed size",
+                    )
+                # Blocking disk write off the event loop.
+                await run_in_threadpool(tmp.write, chunk)
+    except HTTPException:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
+        raise
 
     try:
-        asset = create_asset_from_file(
+        # Hashing, moving into final storage, and thumbnail generation are all
+        # blocking; keep them off the event loop.
+        asset = await run_in_threadpool(
+            create_asset_from_file,
             db,
             src_path=tmp_path,
             content_hash=content_hash,
@@ -239,11 +264,10 @@ def get_thumbnail(
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    settings = get_settings()
-    path = settings.storage_root / (asset.thumbnail_path or f".thumbs/{asset.id}.jpg")
+    path = _safe_absolute_path(asset.thumbnail_path or f".thumbs/{asset.id}.jpg")
     if not path.exists():
         # Regenerate on demand
-        original = storage_svc.absolute_storage_path(asset.storage_path)
+        original = _safe_absolute_path(asset.storage_path, "Original missing")
         if not original.exists():
             raise HTTPException(status_code=404, detail="Original missing")
         thumbs_svc.generate_thumbnail(original, path, mime_type=asset.mime_type)
@@ -259,7 +283,7 @@ def get_original(
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    path = storage_svc.absolute_storage_path(asset.storage_path)
+    path = _safe_absolute_path(asset.storage_path, "Original missing on disk")
     if not path.exists():
         raise HTTPException(status_code=404, detail="Original missing on disk")
     media = asset.mime_type or "application/octet-stream"
@@ -277,7 +301,7 @@ def archive_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     # Confirm file still on disk before phone free-space delete
-    path = storage_svc.absolute_storage_path(asset.storage_path)
+    path = _safe_absolute_path(asset.storage_path, "Original missing on disk; cannot confirm archive")
     if not path.exists():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -293,9 +317,8 @@ def _discard_asset(asset_id: str, db: Session) -> DiscardResponse:
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    settings = get_settings()
-    original = storage_svc.absolute_storage_path(asset.storage_path)
-    thumb = settings.storage_root / (asset.thumbnail_path or f".thumbs/{asset.id}.jpg")
+    original = _safe_absolute_path(asset.storage_path)
+    thumb = _safe_absolute_path(asset.thumbnail_path or f".thumbs/{asset.id}.jpg")
     original.unlink(missing_ok=True)
     thumb.unlink(missing_ok=True)
     db.delete(asset)

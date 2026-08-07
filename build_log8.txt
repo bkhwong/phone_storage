@@ -1,0 +1,200 @@
+﻿> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kspDebugKotlin UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:kspDebugUnitTestKotlin
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:buildKotlinToolingMetadata UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseBuildConfig UP-TO-DATE
+> Task :app:checkReleaseAarMetadata UP-TO-DATE
+> Task :app:processReleaseNavigationResources UP-TO-DATE
+> Task :app:compileReleaseNavigationResources UP-TO-DATE
+> Task :app:generateReleaseResValues UP-TO-DATE
+> Task :app:mapReleaseSourceSetPaths UP-TO-DATE
+> Task :app:generateReleaseResources UP-TO-DATE
+> Task :app:mergeReleaseResources UP-TO-DATE
+> Task :app:packageReleaseResources UP-TO-DATE
+> Task :app:parseReleaseLocalResources UP-TO-DATE
+> Task :app:createReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksRelease UP-TO-DATE
+> Task :app:processReleaseMainManifest UP-TO-DATE
+> Task :app:processReleaseManifest UP-TO-DATE
+> Task :app:processReleaseManifestForPackage UP-TO-DATE
+> Task :app:processReleaseResources UP-TO-DATE
+> Task :app:javaPreCompileRelease UP-TO-DATE
+> Task :app:preReleaseUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileReleaseUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+> Task :app:kspReleaseKotlin
+
+> Task :app:compileReleaseKotlin
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/PhotoSyncApp.kt:28:7 'fun fallbackToDestructiveMigration(): RoomDatabase.Builder<PhotoSyncDatabase>' is deprecated. Replace by overloaded version with parameter to indicate if all tables should be dropped or not.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:5:8 'class EncryptedSharedPreferences : Any, SharedPreferences' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:6:8 'class MasterKey : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:18:25 'class MasterKey : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:18:35 'constructor(p0: Context): MasterKey.Builder' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:19:27 'class MasterKey : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:19:37 'enum class KeyScheme : Enum<MasterKey.KeyScheme!>' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:21:9 'class EncryptedSharedPreferences : Any, SharedPreferences' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:25:13 'class EncryptedSharedPreferences : Any, SharedPreferences' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:25:40 'enum class PrefKeyEncryptionScheme : Enum<EncryptedSharedPreferences.PrefKeyEncryptionScheme!>' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:26:13 'class EncryptedSharedPreferences : Any, SharedPreferences' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/prefs/SecurePrefs.kt:26:40 'enum class PrefValueEncryptionScheme : Enum<EncryptedSharedPreferences.PrefValueEncryptionScheme!>' is deprecated. Deprecated in Java.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:23:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:24:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:31:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:36:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:37:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:38:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:39:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:40:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:41:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:42:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:47:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:48:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:49:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:51:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:56:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:69:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:70:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:71:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:72:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:73:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:74:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:80:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/data/remote/ApiModels.kt:91:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+- To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/sync/UploadEngine.kt:144:57 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+w: file:///C:/Users/brenn_a1chrkr/OneDrive/Desktop/Work/git_repos/phone_storage/android/app/src/main/java/com/phonesync/app/sync/UploadEngine.kt:161:52 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:processReleaseJavaRes
+> Task :app:bundleReleaseClassesToRuntimeJar
+> Task :app:bundleReleaseClassesToCompileJar
+> Task :app:kspReleaseUnitTestKotlin
+> Task :app:compileReleaseUnitTestKotlin
+> Task :app:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processReleaseUnitTestJavaRes
+> Task :app:testReleaseUnitTest
+> Task :app:test
+
+BUILD SUCCESSFUL in 28s
+57 actionable tasks: 13 executed, 44 up-to-date

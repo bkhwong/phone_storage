@@ -28,7 +28,17 @@ class HashUtilTest {
 
     @Test
     fun clientAssetIds_forMediaStore() {
-        assertEquals("ms_42", ClientAssetIds.forMediaStore(42L))
-        assertEquals("ms_0", ClientAssetIds.forMediaStore(0L))
+        assertEquals("ms_image_42", ClientAssetIds.forMediaStore(MediaKind.IMAGE, 42L))
+        assertEquals("ms_video_0", ClientAssetIds.forMediaStore(MediaKind.VIDEO, 0L))
+    }
+
+    @Test
+    fun clientAssetIds_forMediaStore_sameIdDifferentKindDoesNotCollide() {
+        // MediaStore.Images and MediaStore.Video `_ID` columns are independent numeric
+        // spaces, so the same numeric id can legitimately identify two different assets.
+        // The client asset id must stay distinct across kinds to avoid dropping one of them.
+        val imageId = ClientAssetIds.forMediaStore(MediaKind.IMAGE, 7L)
+        val videoId = ClientAssetIds.forMediaStore(MediaKind.VIDEO, 7L)
+        assertNotEquals(imageId, videoId)
     }
 }

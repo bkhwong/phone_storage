@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- LAN HTTP pairing (PC on home network). Prefer Tailscale HTTPS later. -->
+    <!--
+      Cleartext is intentionally allowed for ALL hosts here, not scoped to specific domains.
+      This app talks to a user-entered LAN server URL (arbitrary RFC1918 IP, e.g.
+      192.168.1.42, or the 10.0.2.2 emulator alias) that is not known ahead of time and has
+      no DNS name to pin a <domain-config> to — the Network Security Config format only
+      matches hostnames/domains, not IP ranges/CIDR blocks, so a domain-scoped allowlist
+      cannot express "cleartext OK only for private LAN addresses" here.
+      As defense in depth, PairingScreen additionally warns (non-blocking) if the entered
+      server host does not look like a private/LAN address. Prefer Tailscale/HTTPS later.
+    -->
     <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

@@ -22,11 +22,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# LAN phone clients; keep open for local use
+# LAN phone clients authenticate via an X-Device-Token header, not cookies, so
+# allow_credentials must be False — it's also an invalid/unsafe combination with
+# a wildcard origin (browsers reject it outright). Origins stay permissive since
+# this is a LAN-only server with no cookie-based session to leak.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

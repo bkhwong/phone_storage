@@ -81,6 +81,46 @@ def collision_safe_relative_path(
     return alt
 
 
+def resolve_destination_for_hash(
+    rel: Path,
+    content_hash: str,
+    settings: Settings,
+) -> tuple[Path, bool]:
+    """
+    Find a final relative path under storage_root for content_hash, starting from `rel`.
+
+    Returns (final_rel, reuse_existing):
+      - reuse_existing=True: final_rel already exists on disk with byte-identical
+        content (verified by hash) — caller should dedupe against it and drop src.
+      - reuse_existing=False: final_rel is a free slot — caller should write/move
+        the new content there.
+
+    Never returns a path holding *different* content than content_hash: if the
+    hash-suffixed alternate is also taken by different content, we keep probing
+    numbered suffixes (_2, _3, ...) until we find a matching or free slot, instead
+    of silently discarding the upload.
+    """
+    dest = settings.storage_root / rel
+    if not dest.exists():
+        return rel, False
+    if sha256_file(dest).lower() == content_hash.lower():
+        return rel, True
+
+    short = content_hash[:8]
+    stem = rel.stem
+    suffix = rel.suffix
+    candidate = rel.with_name(f"{stem}_{short}{suffix}")
+    counter = 2
+    while True:
+        dest = settings.storage_root / candidate
+        if not dest.exists():
+            return candidate, False
+        if sha256_file(dest).lower() == content_hash.lower():
+            return candidate, True
+        candidate = rel.with_name(f"{stem}_{short}_{counter}{suffix}")
+        counter += 1
+
+
 def _sanitize_relative_path(relative_path: str | None) -> Path | None:
     if not relative_path:
         return None
@@ -108,9 +148,17 @@ def _safe_filename(name: str) -> str:
     return cleaned[:200]
 
 
+class PathContainmentError(ValueError):
+    """Raised when a resolved path would escape storage_root."""
+
+
 def absolute_storage_path(relative: str | Path, settings: Settings | None = None) -> Path:
     settings = settings or get_settings()
-    return (settings.storage_root / Path(relative)).resolve()
+    root = settings.storage_root.resolve()
+    candidate = (root / Path(relative)).resolve()
+    if not (candidate == root or candidate.is_relative_to(root)):
+        raise PathContainmentError(f"Resolved path escapes storage root: {relative!r}")
+    return candidate
 
 
 def thumb_path_for(asset_id: str, settings: Settings | None = None) -> Path:
@@ -139,22 +187,15 @@ def place_file(
         taken_at=taken_at,
         relative_path=relative_path,
     )
-    dest = settings.storage_root / rel
-    if dest.exists():
-        existing_hash = sha256_file(dest)
-        if existing_hash.lower() == content_hash.lower():
-            if src.resolve() != dest.resolve():
-                src.unlink(missing_ok=True)
-            return rel
-        rel = collision_safe_relative_path(rel, content_hash, settings)
-        dest = settings.storage_root / rel
-        if dest.exists():
-            if src.resolve() != dest.resolve():
-                src.unlink(missing_ok=True)
-            return rel
+    final_rel, reuse_existing = resolve_destination_for_hash(rel, content_hash, settings)
+    dest = settings.storage_root / final_rel
+    if reuse_existing:
+        if src.resolve() != dest.resolve():
+            src.unlink(missing_ok=True)
+        return final_rel
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(src), str(dest))
-    return rel
+    return final_rel
 
 
 def write_bytes_to_final(
@@ -172,14 +213,10 @@ def write_bytes_to_final(
         taken_at=taken_at,
         relative_path=relative_path,
     )
-    dest = settings.storage_root / rel
-    if dest.exists():
-        if sha256_file(dest).lower() == content_hash.lower():
-            return rel
-        rel = collision_safe_relative_path(rel, content_hash, settings)
-        dest = settings.storage_root / rel
-        if dest.exists():
-            return rel
+    final_rel, reuse_existing = resolve_destination_for_hash(rel, content_hash, settings)
+    if reuse_existing:
+        return final_rel
+    dest = settings.storage_root / final_rel
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)
-    return rel
+    return final_rel

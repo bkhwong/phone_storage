@@ -1,4 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+import threading
+import time
+from collections import defaultdict
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ..auth import new_id, new_token
@@ -9,15 +14,54 @@ from ..schemas import PairRequest, PairResponse
 
 router = APIRouter(tags=["pair"])
 
+# In-process sliding-window rate limit for pairing attempts: max N failed PIN
+# attempts per source IP per window. Fine for a single-process local LAN server.
+_RATE_LIMIT_WINDOW_SECONDS = 5 * 60
+_RATE_LIMIT_MAX_ATTEMPTS = 5
+
+_attempts_guard = threading.Lock()
+_failed_attempts: dict[str, list[float]] = defaultdict(list)
+
+
+def _client_key(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _check_rate_limit(key: str) -> None:
+    now = time.monotonic()
+    with _attempts_guard:
+        attempts = [t for t in _failed_attempts.get(key, []) if now - t < _RATE_LIMIT_WINDOW_SECONDS]
+        _failed_attempts[key] = attempts
+        if len(attempts) >= _RATE_LIMIT_MAX_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed pairing attempts; try again later",
+            )
+
+
+def _record_failure(key: str) -> None:
+    with _attempts_guard:
+        _failed_attempts[key].append(time.monotonic())
+
+
+def _clear_attempts(key: str) -> None:
+    with _attempts_guard:
+        _failed_attempts.pop(key, None)
+
 
 @router.post("/api/pair", response_model=PairResponse)
-def pair(body: PairRequest, db: Session = Depends(get_db)) -> PairResponse:
+def pair(body: PairRequest, request: Request, db: Session = Depends(get_db)) -> PairResponse:
     settings = get_settings()
-    if body.pin != settings.pair_pin:
+    client_key = _client_key(request)
+    _check_rate_limit(client_key)
+
+    if not secrets.compare_digest(body.pin.encode("utf-8"), settings.pair_pin.encode("utf-8")):
+        _record_failure(client_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid pairing PIN",
         )
+    _clear_attempts(client_key)
 
     # For non-reusable PIN mode: reject if any device already paired
     if not settings.pair_pin_reusable:

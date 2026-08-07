@@ -14,10 +14,37 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSink
+import java.io.InputStream
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
 data class UploadResult(val serverId: String)
+
+/**
+ * Skips exactly [byteCount] bytes from [input], looping on [InputStream.skip] because real
+ * `ContentResolver` streams (e.g. over FUSE/cloud-backed providers) can under-skip on a single
+ * call. Falls back to reading-and-discarding into a scratch buffer if `skip()` returns 0 while
+ * the stream still has bytes to give (some stream implementations only support skip via read).
+ *
+ * Throws [java.io.EOFException] if the stream ends before [byteCount] bytes were skipped.
+ */
+fun skipFully(input: InputStream, byteCount: Long) {
+    var remaining = byteCount
+    val scratch = ByteArray(64 * 1024)
+    while (remaining > 0) {
+        val skipped = input.skip(remaining)
+        if (skipped > 0) {
+            remaining -= skipped
+            continue
+        }
+        val toRead = minOf(remaining, scratch.size.toLong()).toInt()
+        val read = input.read(scratch, 0, toRead)
+        if (read < 0) {
+            throw java.io.EOFException("Stream ended after skipping ${byteCount - remaining} of $byteCount bytes")
+        }
+        remaining -= read
+    }
+}
 
 class UploadEngine(
     private val context: Context,
@@ -93,12 +120,7 @@ class UploadEngine(
         val uri = Uri.parse(asset.contentUri)
         context.contentResolver.openInputStream(uri)?.use { input ->
             if (offset > 0) {
-                var skipped = 0L
-                while (skipped < offset) {
-                    val n = input.skip(offset - skipped)
-                    if (n <= 0) break
-                    skipped += n
-                }
+                skipFully(input, offset)
             }
             val buffer = ByteArray(chunkSize.toInt().coerceAtMost(8 * 1024 * 1024))
             while (offset < asset.sizeBytes) {

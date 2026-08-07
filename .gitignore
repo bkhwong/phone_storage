@@ -5,9 +5,15 @@ server/.venv/
 .pytest_cache/
 
 # Local config & data
+# NOTE: these are intentionally anchored to the repo root (leading slash). An unanchored
+# "data/" here previously matched android/app/src/main/java/com/phonesync/app/data/ too,
+# which silently kept the entire Kotlin data layer (Room DB, Retrofit client, prefs,
+# repository) out of every commit even though it was actively developed against — the app
+# has not compiled since the initial commit as a result. Keep any future repo-root-only
+# ignore rules anchored the same way.
 server/.env
-data/
-storage/
+/data/
+/storage/
 *.db
 *.db-*
 

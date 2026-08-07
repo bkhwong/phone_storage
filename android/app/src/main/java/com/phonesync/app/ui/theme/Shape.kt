@@ -10,5 +10,8 @@ val PhotoSyncShapes = Shapes(
     small = RoundedCornerShape(16.dp),
     medium = RoundedCornerShape(20.dp),
     large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(32.dp),
 )
+
+/** Even softer radius used for hero cards / brand marks where 32dp still reads as "square-ish". */
+val HeroCornerRadius = 36.dp

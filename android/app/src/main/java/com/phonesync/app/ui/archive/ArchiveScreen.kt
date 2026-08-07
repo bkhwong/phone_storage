@@ -2,250 +2,168 @@ package com.phonesync.app.ui.archive
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.phonesync.app.data.local.LocalAssetEntity
-import com.phonesync.app.data.repository.PhotoSyncRepository
 import com.phonesync.app.media.MediaDeleteHelper
+import com.phonesync.app.ui.PhotoSyncViewModelFactory
+import com.phonesync.app.ui.common.formatBytes
+import com.phonesync.app.ui.components.BackTopBar
+import com.phonesync.app.ui.components.EmptyHint
+import com.phonesync.app.ui.components.PillButton
 import com.phonesync.app.ui.components.SectionCard
-import com.phonesync.app.ui.status.formatBytes
-import kotlinx.coroutines.launch
+import com.phonesync.app.ui.components.SelectableThumbnail
+import com.phonesync.app.ui.components.rememberLocalThumbRequest
+import com.phonesync.app.media.MediaKind
 
 /**
- * Review backed_up assets still on device → archive API → delete local.
+ * Review backed_up assets still on device → archive on server → delete local.
  * Never deletes local before server confirm.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchiveScreen(
-    repository: PhotoSyncRepository,
+    factory: PhotoSyncViewModelFactory,
     onBack: () -> Unit,
 ) {
+    val viewModel: ArchiveViewModel = viewModel(factory = factory)
+    val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val archivable by repository.observeArchivable().collectAsStateWithLifecycle(emptyList())
-    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var pendingAfterConfirm by remember { mutableStateOf<List<LocalAssetEntity>>(emptyList()) }
+    var pendingConfirmed by remember { mutableStateOf<List<LocalAssetEntity>>(emptyList()) }
 
     val deleteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
         if (MediaDeleteHelper.isDeleteGranted(result.resultCode)) {
-            scope.launch {
-                repository.markLocalDeletedAfterArchive(pendingAfterConfirm)
-                message = "Freed ${pendingAfterConfirm.size} items from phone storage."
-                pendingAfterConfirm = emptyList()
-                selected = emptySet()
-                busy = false
-            }
+            viewModel.onDeleteFinished(pendingConfirmed, failedCount = 0)
         } else {
-            message = "Delete cancelled — files remain on phone (still archived on PC)."
-            busy = false
+            viewModel.onDeleteCancelled()
+        }
+        pendingConfirmed = emptyList()
+    }
+
+    fun performDelete(confirmed: List<LocalAssetEntity>) {
+        val uriToAsset = confirmed.associateBy { Uri.parse(it.contentUri) }
+        when (val outcome = MediaDeleteHelper.deleteUris(context, uriToAsset.keys.toList())) {
+            is MediaDeleteHelper.DeleteOutcome.Immediate -> {
+                val deleted = outcome.deletedUris.mapNotNull { uriToAsset[it] }
+                viewModel.onDeleteFinished(deleted, outcome.failedUris.size)
+            }
+            is MediaDeleteHelper.DeleteOutcome.RequiresConfirmation -> {
+                pendingConfirmed = confirmed
+                deleteLauncher.launch(MediaDeleteHelper.intentSenderRequest(outcome.pendingIntent))
+            }
         }
     }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Free up space") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
+        topBar = { BackTopBar(title = "Free up space", onBack = onBack) },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-        ) {
-            SectionCard {
-                Text(
-                    "These items are verified on your PC. Archiving deletes them from this phone only after the server confirms.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(12.dp))
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (!MediaDeleteHelper.hasManageMedia(context)) {
-                OutlinedButton(
-                    onClick = {
-                        context.startActivity(MediaDeleteHelper.manageMediaSettingsIntent(context))
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = CircleShape,
-                ) {
-                    Text("Grant MANAGE_MEDIA for quieter deletes")
+                Box(modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 0.dp)) {
+                    SectionCard(containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
+                        Text(
+                            "Tip: grant \"Manage media\" for quieter, one-tap deletes without a confirmation popup each time.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                        androidx.compose.material3.TextButton(
+                            onClick = { context.startActivity(MediaDeleteHelper.manageMediaSettingsIntent(context)) },
+                        ) { Text("Open settings") }
+                    }
                 }
-                Spacer(Modifier.height(8.dp))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "${selected.size} selected",
-                    style = MaterialTheme.typography.titleMedium,
+
+            if (state.archivable.isEmpty()) {
+                EmptyHint(
+                    icon = Icons.Default.CheckCircle,
+                    title = "Nothing to free up yet",
+                    body = "Once photos finish backing up, they'll show up here so you can clear space on your phone.",
+                    modifier = Modifier.padding(top = 48.dp),
                 )
-                OutlinedButton(
-                    onClick = {
-                        selected = if (selected.size == archivable.size) {
-                            emptySet()
-                        } else {
-                            archivable.map { it.clientAssetId }.toSet()
-                        }
-                    },
-                    shape = CircleShape,
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(if (selected.size == archivable.size) "Clear" else "Select all")
+                    Text(
+                        if (state.selected.isEmpty()) "${state.archivable.size} ready to free up" else "${state.selected.size} selected",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    androidx.compose.material3.TextButton(onClick = viewModel::toggleAll) {
+                        Text(if (state.allSelected) "Clear" else "Select all")
+                    }
                 }
-            }
-            Spacer(Modifier.height(8.dp))
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(archivable, key = { it.clientAssetId }) { asset ->
-                    ArchiveRow(
-                        asset = asset,
-                        checked = asset.clientAssetId in selected,
-                        onToggle = {
-                            selected = if (asset.clientAssetId in selected) {
-                                selected - asset.clientAssetId
-                            } else {
-                                selected + asset.clientAssetId
-                            }
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(100.dp),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(state.archivable, key = { it.clientAssetId }) { asset ->
+                        SelectableThumbnail(
+                            model = rememberLocalThumbRequest(asset.contentUri),
+                            contentDescription = asset.displayName,
+                            selectable = true,
+                            selected = asset.clientAssetId in state.selected,
+                            isVideo = asset.mediaKind == MediaKind.VIDEO,
+                            onClick = { viewModel.toggle(asset.clientAssetId) },
+                        )
+                    }
+                }
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp).navigationBarsPadding()) {
+                    if (state.message != null) {
+                        Text(
+                            state.message!!,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    PillButton(
+                        text = if (state.busy) {
+                            "Working…"
+                        } else {
+                            "Free up ${formatBytes(state.selectedBytes)}"
                         },
+                        onClick = { viewModel.archiveOnServer(::performDelete) },
+                        enabled = state.selected.isNotEmpty() && !state.busy,
+                        loading = state.busy,
                     )
                 }
-            }
-            if (message != null) {
-                Text(message!!, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(8.dp))
-            }
-            val selectedBytes = archivable
-                .filter { it.clientAssetId in selected }
-                .sumOf { it.sizeBytes }
-            Button(
-                enabled = selected.isNotEmpty() && !busy,
-                onClick = {
-                    busy = true
-                    message = null
-                    scope.launch {
-                        runCatching {
-                            val toArchive = archivable.filter { it.clientAssetId in selected }
-                            val confirmed = repository.archiveOnServer(toArchive)
-                            if (confirmed.isEmpty()) {
-                                message = "Nothing confirmed by server."
-                                busy = false
-                                return@launch
-                            }
-                            pendingAfterConfirm = confirmed
-                            val uris = confirmed.map { Uri.parse(it.contentUri) }
-                            val pendingIntent = MediaDeleteHelper.deleteUris(context, uris)
-                            if (pendingIntent != null) {
-                                deleteLauncher.launch(
-                                    IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
-                                )
-                            } else {
-                                repository.markLocalDeletedAfterArchive(confirmed)
-                                message = "Freed ${confirmed.size} items."
-                                selected = emptySet()
-                                busy = false
-                            }
-                        }.onFailure {
-                            message = it.message ?: "Archive failed"
-                            busy = false
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = CircleShape,
-            ) {
-                Text("Archive & delete local (${formatBytes(selectedBytes)})")
-            }
-        }
-    }
-}
-
-@Composable
-private fun ArchiveRow(
-    asset: LocalAssetEntity,
-    checked: Boolean,
-    onToggle: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = MaterialTheme.shapes.medium,
-        onClick = onToggle,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(checked = checked, onCheckedChange = { onToggle() })
-            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                Text(asset.displayName, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    formatBytes(asset.sizeBytes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

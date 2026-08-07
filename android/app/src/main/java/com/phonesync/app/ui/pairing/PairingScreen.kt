@@ -2,19 +2,24 @@ package com.phonesync.app.ui.pairing
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -22,12 +27,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,45 +36,21 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.phonesync.app.BuildConfig
-import com.phonesync.app.data.repository.PhotoSyncRepository
-import com.phonesync.app.sync.SyncWorker
+import com.phonesync.app.ui.PhotoSyncViewModelFactory
 import com.phonesync.app.ui.components.BrandMark
+import com.phonesync.app.ui.components.PillButton
 import com.phonesync.app.ui.components.SectionCard
-import kotlinx.coroutines.launch
-import java.net.URI
 
 @Composable
 fun PairingScreen(
-    repository: PhotoSyncRepository,
-    allowCellular: Boolean,
-    syncIntervalMinutes: Int,
+    factory: PhotoSyncViewModelFactory,
     onPaired: () -> Unit,
 ) {
-    var serverUrl by remember { mutableStateOf("http://10.0.2.2:8787") }
-    var pin by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val viewModel: PairingViewModel = viewModel(factory = factory)
+    val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    val lanWarning by remember { derivedStateOf { lanWarningFor(serverUrl) } }
-
-    fun doPair() {
-        loading = true
-        error = null
-        scope.launch {
-            runCatching {
-                repository.pair(serverUrl.trim(), pin.trim())
-                SyncWorker.enqueuePeriodic(context, syncIntervalMinutes, allowCellular)
-            }.onSuccess {
-                loading = false
-                onPaired()
-            }.onFailure {
-                loading = false
-                error = it.message ?: "Pairing failed"
-            }
-        }
-    }
 
     // Debug-only: adb shell am start ... --es demo_pin 123456 --ez demo_pair true
     // or --es demo_pin 000000 to show the error state without flaky emulator taps.
@@ -83,24 +60,9 @@ fun PairingScreen(
         val extras = activity.intent?.extras ?: return@LaunchedEffect
         val demoUrl = extras.getString("demo_url")
         val demoPin = extras.getString("demo_pin")
-        if (demoUrl != null) serverUrl = demoUrl
-        if (demoPin != null) pin = demoPin
+        if (demoUrl != null || demoPin != null) viewModel.prefill(demoUrl, demoPin)
         if (extras.getBoolean("demo_pair", false)) {
-            val url = (demoUrl ?: serverUrl).trim()
-            val p = (demoPin ?: pin).trim()
-            if (url.isBlank() || p.isBlank()) return@LaunchedEffect
-            loading = true
-            error = null
-            runCatching {
-                repository.pair(url, p)
-                SyncWorker.enqueuePeriodic(context, syncIntervalMinutes, allowCellular)
-            }.onSuccess {
-                loading = false
-                onPaired()
-            }.onFailure {
-                loading = false
-                error = it.message ?: "Pairing failed"
-            }
+            viewModel.pair(onPaired)
         }
     }
 
@@ -111,26 +73,28 @@ fun PairingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 24.dp, vertical = 36.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            BrandMark(icon = Icons.Default.PhotoCamera, size = 76)
-            Spacer(Modifier.height(22.dp))
+            BrandMark(icon = Icons.Default.CloudSync, size = 84)
+            Spacer(Modifier.height(24.dp))
             Text(
-                "Hello,",
+                "Welcome to",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 "Photo Sync",
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
-                "Pair with your PC on the same Wi-Fi.\nEnter the server URL and PIN.",
+                "Pair with your PC on the same Wi-Fi to start backing up photos and videos automatically.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -138,25 +102,22 @@ fun PairingScreen(
             Spacer(Modifier.height(28.dp))
             SectionCard {
                 OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = { serverUrl = it },
-                    label = { Text("Server URL") },
+                    value = state.serverUrl,
+                    onValueChange = viewModel::onServerUrlChange,
+                    label = { Text("PC address") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("http://10.0.2.2:8787") },
+                    placeholder = { Text("192.168.1.42:8787") },
+                    leadingIcon = { Icon(Icons.Default.Wifi, contentDescription = null) },
                     shape = MaterialTheme.shapes.medium,
                     colors = OutlinedTextFieldDefaults.colors(),
                 )
-                if (lanWarning != null) {
-                    Text(
-                        lanWarning!!,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                if (state.lanWarning != null) {
+                    InlineNotice(icon = Icons.Default.WarningAmber, text = state.lanWarning!!, tone = NoticeTone.Warning)
                 }
                 OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it },
+                    value = state.pin,
+                    onValueChange = viewModel::onPinChange,
                     label = { Text("Pairing PIN") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
@@ -165,71 +126,38 @@ fun PairingScreen(
                     shape = MaterialTheme.shapes.medium,
                     colors = OutlinedTextFieldDefaults.colors(),
                 )
-                if (error != null) {
-                    Text(
-                        error!!,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                if (state.error != null) {
+                    InlineNotice(icon = Icons.Default.ErrorOutline, text = state.error!!, tone = NoticeTone.Error)
                 }
                 Spacer(Modifier.height(4.dp))
-                Button(
-                    enabled = !loading && pin.isNotBlank() && serverUrl.isNotBlank(),
-                    onClick = { doPair() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = CircleShape,
-                ) {
-                    if (loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(22.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Text(
-                            "Pair device",
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-                }
+                PillButton(
+                    text = "Pair device",
+                    onClick = { viewModel.pair(onPaired) },
+                    enabled = state.canSubmit,
+                    loading = state.loading,
+                )
             }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Find this on your PC: open Photo Sync Server and look for \"Pairing PIN\" and the address shown under \"Connect from your phone\".",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
 
-/**
- * The Network Security Config (res/xml/network_security_config.xml) permits cleartext traffic
- * globally because it can only match domains, not IP/CIDR ranges — and the server URL here is
- * an arbitrary user-entered LAN IP, so there's no way to scope it more tightly there. As
- * defense in depth, warn (non-blocking) if the entered host doesn't look like a private/LAN
- * address, so a user is less likely to accidentally paste in a public address and send
- * pairing credentials over plaintext HTTP across the open internet.
- */
-private fun lanWarningFor(url: String): String? {
-    val trimmed = url.trim()
-    if (trimmed.isEmpty()) return null
-    val host = runCatching { URI(trimmed).host }.getOrNull() ?: return null
-    if (looksLikePrivateHost(host)) return null
-    return "This doesn't look like a local network address. Only pair with a PC on your own Wi-Fi/LAN."
-}
+private enum class NoticeTone { Warning, Error }
 
-private fun looksLikePrivateHost(host: String): Boolean {
-    if (host.equals("localhost", ignoreCase = true)) return true
-    if (host.endsWith(".local", ignoreCase = true)) return true
-    if (host == "10.0.2.2") return true // Android emulator alias for host loopback
-
-    val octets = host.split(".").mapNotNull { it.toIntOrNull() }
-    if (octets.size == 4 && octets.all { it in 0..255 }) {
-        return when {
-            octets[0] == 10 -> true
-            octets[0] == 172 && octets[1] in 16..31 -> true
-            octets[0] == 192 && octets[1] == 168 -> true
-            octets[0] == 169 && octets[1] == 254 -> true // link-local
-            octets[0] == 127 -> true // loopback
-            else -> false
-        }
+@Composable
+private fun InlineNotice(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tone: NoticeTone) {
+    val color = when (tone) {
+        NoticeTone.Warning -> MaterialTheme.colorScheme.tertiary
+        NoticeTone.Error -> MaterialTheme.colorScheme.error
     }
-    return false
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+        Text(text, color = color, style = MaterialTheme.typography.bodySmall)
+    }
 }

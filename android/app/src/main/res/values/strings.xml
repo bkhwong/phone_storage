@@ -5,4 +5,8 @@
     <string name="notification_channel_migration">Migration</string>
     <string name="sync_notification_title">Photo Sync</string>
     <string name="migration_notification_title">Library migration</string>
+    <string name="migration_notification_uploading">Uploading your library to PC…</string>
+    <string name="migration_notification_progress">Uploading — %1$d item(s) left</string>
+    <string name="migration_notification_paused">Paused — %1$d remaining. Tap Continue in the app.</string>
+    <string name="migration_notification_complete">Library migration complete</string>
 </resources>

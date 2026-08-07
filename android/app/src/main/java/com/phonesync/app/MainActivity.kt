@@ -1,6 +1,7 @@
 package com.phonesync.app
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +20,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,12 +32,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.phonesync.app.ui.PhotoSyncViewModelFactory
 import com.phonesync.app.ui.archive.ArchiveScreen
 import com.phonesync.app.ui.battery.BatteryGuidanceScreen
 import com.phonesync.app.ui.browse.BrowseScreen
 import com.phonesync.app.ui.migration.MigrationScreen
 import com.phonesync.app.ui.nav.AppRoute
 import com.phonesync.app.ui.pairing.PairingScreen
+import com.phonesync.app.ui.permissions.PermissionGateScreen
 import com.phonesync.app.ui.settings.SettingsScreen
 import com.phonesync.app.ui.status.StatusScreen
 import com.phonesync.app.ui.theme.PhotoSyncTheme
@@ -72,46 +76,55 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PhotoSyncRoot(app: PhotoSyncApp) {
     val prefs = app.container.prefs
-    val repository = app.container.repository
+    val factory = remember { PhotoSyncViewModelFactory(app.container) }
     val navController = rememberNavController()
     val token by prefs.deviceToken.collectAsStateWithLifecycle(null)
-    val interval by prefs.syncIntervalMinutes.collectAsStateWithLifecycle(60)
-    val cellular by prefs.allowCellular.collectAsStateWithLifecycle(false)
     val batterySeen by prefs.batteryGuidanceSeen.collectAsStateWithLifecycle(false)
     val paired = !token.isNullOrBlank()
     val context = LocalContext.current
     var permissionsReady by remember { mutableStateOf(hasMediaPermissions(context)) }
+    var hasRequestedPermission by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { result ->
+    ) {
         // Notifications are best-effort; only the media permissions are required to proceed,
         // and they must ALL be granted (a partial grant is not "ready").
+        hasRequestedPermission = true
         permissionsReady = hasMediaPermissions(context)
     }
 
-    LaunchedEffect(Unit) {
-        if (!permissionsReady) {
-            // Request every needed permission in a single launch — issuing a second launch
-            // call on the same launcher while the first is in flight cancels it.
-            val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS,
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                emptyArray()
-            }
-            permissionLauncher.launch(requiredPermissions() + notificationPermission)
+    fun requestPermissions() {
+        val notificationPermission = if (needsNotificationPermissionRequest(context)) {
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            emptyArray()
         }
+        // Request every needed permission in a single launch — issuing a second launch call
+        // on the same launcher while the first is in flight cancels it.
+        permissionLauncher.launch(requiredPermissions() + notificationPermission)
+    }
+
+    LaunchedEffect(Unit) {
+        if (!permissionsReady) requestPermissions()
     }
 
     LaunchedEffect(paired, permissionsReady) {
         if (paired && permissionsReady) {
-            runCatching { repository.scanAndReconcileLocal() }
+            runCatching { app.container.repository.scanAndReconcileLocal() }
         }
+    }
+
+    if (!permissionsReady) {
+        val activity = context as? Activity
+        val permanentlyDenied = hasRequestedPermission &&
+            activity != null &&
+            requiredPermissions().none { activity.shouldShowRequestPermissionRationale(it) }
+        PermissionGateScreen(
+            permanentlyDenied = permanentlyDenied,
+            onRequestPermission = { requestPermissions() },
+        )
+        return
     }
 
     val start = if (paired) AppRoute.Home.route else AppRoute.Pairing.route
@@ -119,9 +132,7 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
     NavHost(navController = navController, startDestination = start) {
         composable(AppRoute.Pairing.route) {
             PairingScreen(
-                repository = repository,
-                allowCellular = cellular,
-                syncIntervalMinutes = interval,
+                factory = factory,
                 onPaired = {
                     navController.navigate(AppRoute.Home.route) {
                         popUpTo(AppRoute.Pairing.route) { inclusive = true }
@@ -134,8 +145,7 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
         }
         composable(AppRoute.Home.route) {
             StatusScreen(
-                repository = repository,
-                prefs = prefs,
+                factory = factory,
                 onArchive = { navController.navigate(AppRoute.Archive.route) },
                 onBrowse = { navController.navigate(AppRoute.Browse.route) },
                 onMigration = { navController.navigate(AppRoute.Migration.route) },
@@ -144,27 +154,25 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
         }
         composable(AppRoute.Archive.route) {
             ArchiveScreen(
-                repository = repository,
+                factory = factory,
                 onBack = { navController.popBackStack() },
             )
         }
         composable(AppRoute.Browse.route) {
             BrowseScreen(
-                repository = repository,
+                factory = factory,
                 onBack = { navController.popBackStack() },
             )
         }
         composable(AppRoute.Migration.route) {
             MigrationScreen(
-                repository = repository,
-                prefs = prefs,
+                factory = factory,
                 onBack = { navController.popBackStack() },
             )
         }
         composable(AppRoute.Settings.route) {
             SettingsScreen(
-                repository = repository,
-                prefs = prefs,
+                factory = factory,
                 onBatteryGuidance = { navController.navigate(AppRoute.Battery.route) },
                 onUnpaired = {
                     navController.navigate(AppRoute.Pairing.route) {
@@ -176,7 +184,7 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
         }
         composable(AppRoute.Battery.route) {
             BatteryGuidanceScreen(
-                prefs = prefs,
+                factory = factory,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -198,4 +206,12 @@ private fun hasMediaPermissions(context: android.content.Context): Boolean {
     return requiredPermissions().all {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
+}
+
+private fun needsNotificationPermissionRequest(context: android.content.Context): Boolean {
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) != PackageManager.PERMISSION_GRANTED
 }

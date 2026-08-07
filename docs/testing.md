@@ -22,7 +22,7 @@ Covered without a device:
 - `LocalAssetDao` (Robolectric + in-memory Room DB): count-by-state, `observeArchivable`
   vs. `observeBackedUpTotalCount`, `resetByServerAssetId`, byte sums
 
-89 tests, 0 failures as of this writing.
+90 tests, 0 failures as of this writing.
 
 ## Static analysis
 
@@ -103,11 +103,12 @@ cmdline-tools + SDK platforms 34/36 + build-tools installed fresh for this sessi
 | Check | Result |
 |-------|--------|
 | `./gradlew :app:assembleDebug` | **SUCCESS** |
-| `./gradlew :app:testDebugUnitTest` | **89 tests, 0 failures** |
+| `./gradlew :app:testDebugUnitTest` | **90 tests, 0 failures** |
 | `./gradlew :app:lintDebug` | **SUCCESS** — all actionable findings fixed (see git log); remaining warnings are minor library-currency suggestions |
 | `./gradlew :app:compileDebugAndroidTestKotlin` | **SUCCESS** (compiles; not run — see below) |
 | Emulator boot (`emulator -avd ... -no-window`) | **Did not complete** — `/dev/kvm` is present and `vmx` is in `/proc/cpuinfo`, but the guest vCPU faulted (`kvm_spurious_fault` in `dmesg`) and never reached `sys.boot_completed`; nested virtualization is evidently unstable in this particular sandbox. `connectedDebugAndroidTest` and real on-device screenshots were not possible from here as a result. |
 | `python -m pytest -q` (server/) | **37 tests, 0 failures** |
+| `python scripts/smoke_test.py` (local server) | **PASSED** (health, pair, upload, abort, archive, list, discard) |
 
 ## Still manual
 

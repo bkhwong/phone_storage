@@ -1,5 +1,6 @@
 package com.phonesync.app.ui.battery
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -48,7 +49,12 @@ import com.phonesync.app.ui.components.StatusChip
 
 /**
  * Samsung / OEM battery killers make WorkManager unreliable unless the user exempts the app.
+ *
+ * REQUEST_IGNORE_BATTERY_OPTIMIZATIONS is against Play Store policy for most app categories,
+ * but this app is sideloaded only (see android/README.md) and genuinely needs reliable
+ * background sync, one of the policy's documented acceptable use cases.
  */
+@SuppressLint("BatteryLife")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BatteryGuidanceScreen(

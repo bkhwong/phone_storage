@@ -150,7 +150,11 @@ class MigrationWorker(
                 if (remaining == 0) break
                 setProgress(workDataOf(KEY_TOTAL to initialRemaining, KEY_REMAINING to remaining))
                 updateNotification(
-                    applicationContext.getString(R.string.migration_notification_progress, remaining),
+                    applicationContext.resources.getQuantityString(
+                        R.plurals.migration_notification_progress,
+                        remaining,
+                        remaining,
+                    ),
                 )
                 val uploaded = repo.uploadPending(limit = 8) { asset, offset, total ->
                     if (total > 0) {
@@ -172,7 +176,11 @@ class MigrationWorker(
             setProgress(workDataOf(KEY_TOTAL to initialRemaining, KEY_REMAINING to left))
             if (left > 0) {
                 updateNotification(
-                    applicationContext.getString(R.string.migration_notification_paused, left),
+                    applicationContext.resources.getQuantityString(
+                        R.plurals.migration_notification_paused,
+                        left,
+                        left,
+                    ),
                 )
                 Result.success(workDataOf(KEY_REMAINING to left))
             } else {

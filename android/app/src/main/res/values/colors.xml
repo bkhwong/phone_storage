@@ -3,7 +3,6 @@
     <!-- Matches primary in ui/theme/Color.kt so the launcher icon, splash, and in-app brand
          mark all read as the same product instead of three unrelated colors. -->
     <color name="ic_launcher_background">#FF3457D6</color>
-    <color name="seed">#FF3457D6</color>
     <!-- Matches the light static-fallback background tone in ui/theme/Color.kt -->
     <color name="splash_background">#FFFBF8FF</color>
 </resources>

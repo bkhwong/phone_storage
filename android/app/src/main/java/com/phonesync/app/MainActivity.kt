@@ -192,20 +192,38 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
 }
 
 private fun requiredPermissions(): Array<String> {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        arrayOf(
+    return when {
+        // Android 14+ "Selected photos" partial access: requesting all three together is
+        // the documented pattern for surfacing the system's "Allow all / Select photos and
+        // videos / Don't allow" three-way choice instead of only a binary grant/deny.
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+        )
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(
             Manifest.permission.READ_MEDIA_IMAGES,
             Manifest.permission.READ_MEDIA_VIDEO,
         )
-    } else {
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 }
 
 private fun hasMediaPermissions(context: android.content.Context): Boolean {
-    return requiredPermissions().all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        // A user who chose "Select photos and videos..." only grants
+        // READ_MEDIA_VISUAL_USER_SELECTED, not the full READ_MEDIA_IMAGES/VIDEO pair —
+        // MediaStoreScanner will transparently only see that selected subset, which is
+        // correct behavior, not a denial to gate the whole app on.
+        val fullAccess = granted(Manifest.permission.READ_MEDIA_IMAGES) &&
+            granted(Manifest.permission.READ_MEDIA_VIDEO)
+        val partialAccess = granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+        return fullAccess || partialAccess
     }
+    return requiredPermissions().all(::granted)
 }
 
 private fun needsNotificationPermissionRequest(context: android.content.Context): Boolean {

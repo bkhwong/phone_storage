@@ -21,3 +21,8 @@ server/.env
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Stray local build-tool output (found 12 of these accidentally committed at the repo
+# root from a local Windows Gradle debugging session, including a leaked home directory
+# path — removed; ignore future ones so it doesn't happen again).
+/build_log*.txt

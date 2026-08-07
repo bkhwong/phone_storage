@@ -23,17 +23,23 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -59,13 +65,23 @@ fun StatusScreen(
     onBrowse: () -> Unit,
     onMigration: () -> Unit,
     onSettings: () -> Unit,
+    partialMediaAccess: Boolean = false,
+    onRequestFullMediaAccess: () -> Unit = {},
 ) {
     val viewModel: StatusViewModel = viewModel(factory = factory)
     val state by viewModel.state.collectAsState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.message) {
+        val msg = state.message ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(msg)
+        viewModel.dismissMessage()
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             LargeTopAppBar(
                 title = { Text("Photo Sync") },
@@ -82,7 +98,7 @@ fun StatusScreen(
         },
     ) { padding ->
         PullToRefreshBox(
-            isRefreshing = state.refreshing,
+            isRefreshing = state.refreshing || state.retryingFailed,
             onRefresh = viewModel::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
@@ -97,8 +113,19 @@ fun StatusScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item { HeroStatusCard(state.snapshot) }
+                if (partialMediaAccess) {
+                    item {
+                        PartialAccessBanner(onAllowAll = onRequestFullMediaAccess)
+                    }
+                }
                 if (state.snapshot.failedCount > 0) {
-                    item { AttentionBanner(count = state.snapshot.failedCount, onFix = onArchive) }
+                    item {
+                        FailedUploadsBanner(
+                            count = state.snapshot.failedCount,
+                            retrying = state.retryingFailed,
+                            onRetry = viewModel::retryFailed,
+                        )
+                    }
                 }
                 item {
                     Row(
@@ -198,7 +225,39 @@ private fun HeroStatusCard(status: StatusSnapshot) {
 }
 
 @Composable
-private fun AttentionBanner(count: Int, onFix: () -> Unit) {
+private fun PartialAccessBanner(onAllowAll: () -> Unit) {
+    SectionCard(containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(
+                Icons.Default.WarningAmber,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Only selected photos are syncing",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Text(
+                    "Allow all photos & videos so new shots are backed up automatically.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                TextButton(onClick = onAllowAll) {
+                    Text("Allow all")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FailedUploadsBanner(
+    count: Int,
+    retrying: Boolean,
+    onRetry: () -> Unit,
+) {
     SectionCard(containerColor = MaterialTheme.colorScheme.errorContainer) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
@@ -209,10 +268,13 @@ private fun AttentionBanner(count: Int, onFix: () -> Unit) {
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
                 Text(
-                    "They'll retry automatically on the next sync.",
+                    "Tap Retry to requeue them now, or pull to refresh.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
+                TextButton(onClick = onRetry, enabled = !retrying) {
+                    Text(if (retrying) "Retrying…" else "Retry now")
+                }
             }
         }
     }
@@ -238,6 +300,6 @@ private fun PendingRow(asset: LocalAssetEntity) {
 private fun stateLabel(asset: LocalAssetEntity): String = when (asset.syncState.name) {
     "PENDING" -> "Waiting to upload"
     "UPLOADING" -> "Uploading…"
-    "FAILED" -> "Failed — will retry"
+    "FAILED" -> "Failed — tap Retry above"
     else -> asset.syncState.name.lowercase().replaceFirstChar { it.uppercase() }
 }

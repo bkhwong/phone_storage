@@ -81,4 +81,14 @@ interface LocalAssetDao {
             "uploadSessionId = NULL, uploadOffset = 0 WHERE serverAssetId = :serverAssetId",
     )
     suspend fun resetByServerAssetId(serverAssetId: String): Int
+
+    /**
+     * Home "Retry failed" — clears sticky errors and puts failed rows back in the upload queue.
+     * Returns the number of rows updated.
+     */
+    @Query(
+        "UPDATE local_assets SET syncState = 'PENDING', lastError = NULL, " +
+            "updatedAtEpochMs = :now WHERE syncState = 'FAILED'",
+    )
+    suspend fun requeueFailed(now: Long): Int
 }

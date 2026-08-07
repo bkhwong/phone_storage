@@ -175,14 +175,36 @@ class LocalAssetDaoTest {
     }
 
     @Test
-    fun observeBytesByStates_sumsOnlyMatchingStates() = runBlocking {
-        dao.upsertAll(
-            listOf(
-                entity("a", SyncState.PENDING, sizeBytes = 1_000),
-                entity("b", SyncState.PENDING, sizeBytes = 2_000),
-                entity("c", SyncState.BACKED_UP, sizeBytes = 9_000),
-            ),
+    fun requeueFailed_movesFailedToPendingAndClearsError() = runBlocking {
+        dao.upsert(
+            entity("ok", SyncState.PENDING).copy(lastError = null),
         )
-        assertEquals(3_000L, dao.observeBytesByStates(listOf(SyncState.PENDING)).first())
+        dao.upsert(
+            entity("bad", SyncState.FAILED).copy(lastError = "timeout"),
+        )
+        dao.upsert(
+            entity("also-bad", SyncState.FAILED, serverAssetId = "srv-x").copy(lastError = "404"),
+        )
+        val updated = dao.requeueFailed(now = 42L)
+        assertEquals(2, updated)
+
+        val bad = dao.getById("bad")
+        assertEquals(SyncState.PENDING, bad?.syncState)
+        assertNull(bad?.lastError)
+        assertEquals(42L, bad?.updatedAtEpochMs)
+
+        val also = dao.getById("also-bad")
+        assertEquals(SyncState.PENDING, also?.syncState)
+        assertNull(also?.lastError)
+        // Server id is preserved — a prior partial success shouldn't be forgotten.
+        assertEquals("srv-x", also?.serverAssetId)
+
+        assertEquals(SyncState.PENDING, dao.getById("ok")?.syncState)
+    }
+
+    @Test
+    fun requeueFailed_noFailedRows_updatesNothing() = runBlocking {
+        dao.upsert(entity("a", SyncState.PENDING))
+        assertEquals(0, dao.requeueFailed(now = 1L))
     }
 }

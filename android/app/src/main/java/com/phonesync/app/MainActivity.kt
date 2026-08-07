@@ -2,8 +2,6 @@ package com.phonesync.app
 
 import android.Manifest
 import android.app.Activity
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -15,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -25,13 +24,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.phonesync.app.media.MediaAccessLevel
+import com.phonesync.app.media.MediaPermissions
 import com.phonesync.app.ui.PhotoSyncViewModelFactory
 import com.phonesync.app.ui.archive.ArchiveScreen
 import com.phonesync.app.ui.battery.BatteryGuidanceScreen
@@ -82,44 +85,56 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
     val batterySeen by prefs.batteryGuidanceSeen.collectAsStateWithLifecycle(false)
     val paired = !token.isNullOrBlank()
     val context = LocalContext.current
-    var permissionsReady by remember { mutableStateOf(hasMediaPermissions(context)) }
+    var mediaAccess by remember { mutableStateOf(MediaPermissions.accessLevel(context)) }
     var hasRequestedPermission by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) {
-        // Notifications are best-effort; only the media permissions are required to proceed,
-        // and they must ALL be granted (a partial grant is not "ready").
+        // Notifications are best-effort; only media permissions gate the app. A partial
+        // ("Select photos") grant is enough to proceed — Home shows a banner for full access.
         hasRequestedPermission = true
-        permissionsReady = hasMediaPermissions(context)
+        mediaAccess = MediaPermissions.accessLevel(context)
     }
 
     fun requestPermissions() {
-        val notificationPermission = if (needsNotificationPermissionRequest(context)) {
+        val notificationPermission = if (MediaPermissions.needsNotificationPermission(context)) {
             arrayOf(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             emptyArray()
         }
         // Request every needed permission in a single launch — issuing a second launch call
         // on the same launcher while the first is in flight cancels it.
-        permissionLauncher.launch(requiredPermissions() + notificationPermission)
+        permissionLauncher.launch(MediaPermissions.required() + notificationPermission)
     }
 
     LaunchedEffect(Unit) {
-        if (!permissionsReady) requestPermissions()
+        if (mediaAccess == MediaAccessLevel.None) requestPermissions()
     }
 
-    LaunchedEffect(paired, permissionsReady) {
-        if (paired && permissionsReady) {
+    // Re-check after Settings / system permission dialogs (partial → full upgrade).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                mediaAccess = MediaPermissions.accessLevel(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(paired, mediaAccess) {
+        if (paired && mediaAccess != MediaAccessLevel.None) {
             runCatching { app.container.repository.scanAndReconcileLocal() }
         }
     }
 
-    if (!permissionsReady) {
+    if (mediaAccess == MediaAccessLevel.None) {
         val activity = context as? Activity
         val permanentlyDenied = hasRequestedPermission &&
             activity != null &&
-            requiredPermissions().none { activity.shouldShowRequestPermissionRationale(it) }
+            MediaPermissions.required().none { activity.shouldShowRequestPermissionRationale(it) }
         PermissionGateScreen(
             permanentlyDenied = permanentlyDenied,
             onRequestPermission = { requestPermissions() },
@@ -146,6 +161,8 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
         composable(AppRoute.Home.route) {
             StatusScreen(
                 factory = factory,
+                partialMediaAccess = mediaAccess == MediaAccessLevel.Partial,
+                onRequestFullMediaAccess = { requestPermissions() },
                 onArchive = { navController.navigate(AppRoute.Archive.route) },
                 onBrowse = { navController.navigate(AppRoute.Browse.route) },
                 onMigration = { navController.navigate(AppRoute.Migration.route) },
@@ -189,47 +206,4 @@ private fun PhotoSyncRoot(app: PhotoSyncApp) {
             )
         }
     }
-}
-
-private fun requiredPermissions(): Array<String> {
-    return when {
-        // Android 14+ "Selected photos" partial access: requesting all three together is
-        // the documented pattern for surfacing the system's "Allow all / Select photos and
-        // videos / Don't allow" three-way choice instead of only a binary grant/deny.
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.READ_MEDIA_VIDEO,
-            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
-        )
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.READ_MEDIA_VIDEO,
-        )
-        else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-    }
-}
-
-private fun hasMediaPermissions(context: android.content.Context): Boolean {
-    fun granted(permission: String) =
-        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        // A user who chose "Select photos and videos..." only grants
-        // READ_MEDIA_VISUAL_USER_SELECTED, not the full READ_MEDIA_IMAGES/VIDEO pair —
-        // MediaStoreScanner will transparently only see that selected subset, which is
-        // correct behavior, not a denial to gate the whole app on.
-        val fullAccess = granted(Manifest.permission.READ_MEDIA_IMAGES) &&
-            granted(Manifest.permission.READ_MEDIA_VIDEO)
-        val partialAccess = granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-        return fullAccess || partialAccess
-    }
-    return requiredPermissions().all(::granted)
-}
-
-private fun needsNotificationPermissionRequest(context: android.content.Context): Boolean {
-    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) != PackageManager.PERMISSION_GRANTED
 }

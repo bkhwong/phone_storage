@@ -74,6 +74,20 @@ class PhotoSyncRepository(
         SyncWorker.enqueueNow(context, prefs.allowCellular.first())
     }
 
+    /**
+     * Explicit "Retry" from Home: clears sticky errors on [SyncState.FAILED] rows, flips them
+     * back to [SyncState.PENDING] so they sort with fresh work, then kicks [triggerSyncNow].
+     * Failed items are already eligible for upload on the next pass — this just makes the
+     * user-initiated retry obvious in the UI (error text disappears, state label updates).
+     *
+     * @return how many failed rows were requeued
+     */
+    suspend fun retryFailedUploads(): Int = withContext(Dispatchers.IO) {
+        val count = dao.requeueFailed(now())
+        triggerSyncNow()
+        count
+    }
+
     /** Rescans, then starts (or resumes) the long-running foreground migration worker. */
     suspend fun startMigration() = withContext(Dispatchers.IO) {
         scanAndReconcileLocal()

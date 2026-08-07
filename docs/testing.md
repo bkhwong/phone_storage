@@ -68,9 +68,15 @@ new per-chunk size cap), `test_assets_lifecycle`, `test_assets_listing`, `test_s
 
 ## Server smoke
 
-```powershell
+```bash
+# Server must already be running (PAIR_PIN must match; defaults to 123456).
 python scripts/smoke_test.py
+# Optional overrides:
+#   PHOTO_SYNC_BASE=http://127.0.0.1:8787 PAIR_PIN=123456 python scripts/smoke_test.py
 ```
+
+Covers health, pair, simple + idempotent upload, hash lookup, thumbnail/original, resumable
+chunk upload, mid-upload abort (409 on complete), archive, list by state, and discard.
 
 ## Firewall / WoL / second-drive — why hard to automate
 

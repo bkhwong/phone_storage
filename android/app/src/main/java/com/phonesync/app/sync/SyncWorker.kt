@@ -89,6 +89,14 @@ class SyncWorker(
                 request,
             )
         }
+
+        /** Cancels both the periodic and one-shot sync work, e.g. when unpairing. */
+        fun cancelAll(context: Context) {
+            WorkManager.getInstance(context).apply {
+                cancelUniqueWork(UNIQUE_PERIODIC)
+                cancelUniqueWork(UNIQUE_ONESHOT)
+            }
+        }
     }
 }
 
@@ -105,8 +113,8 @@ class MigrationWorker(
         ensureChannel()
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle(applicationContext.getString(R.string.migration_notification_title))
-            .setContentText("Uploading library to PC…")
-            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentText(applicationContext.getString(R.string.migration_notification_uploading))
+            .setSmallIcon(R.drawable.ic_notification_sync)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()
@@ -133,31 +141,43 @@ class MigrationWorker(
             if (!repo.checkHealth()) return Result.retry()
             repo.scanAndReconcileLocal()
 
+            val initialRemaining = repo.observePendingCount().first()
+            setProgress(workDataOf(KEY_TOTAL to initialRemaining, KEY_REMAINING to initialRemaining))
+
             var rounds = 0
             while (rounds < 200) {
                 val remaining = repo.observePendingCount().first()
                 if (remaining == 0) break
-                updateNotification("Uploading… $remaining items left")
+                setProgress(workDataOf(KEY_TOTAL to initialRemaining, KEY_REMAINING to remaining))
+                updateNotification(
+                    applicationContext.getString(R.string.migration_notification_progress, remaining),
+                )
                 val uploaded = repo.uploadPending(limit = 8) { asset, offset, total ->
-                    // Progress is best-effort via notification below each batch.
+                    if (total > 0) {
+                        val pct = ((offset * 100) / total).toInt()
+                        updateNotification("${asset.displayName} — $pct%")
+                    }
                 }
                 if (uploaded == 0) {
                     // Could be all failing; stop to avoid tight loop.
                     val still = app.container.database.localAssetDao()
-                        .count(listOf(SyncState.PENDING, SyncState.UPLOADING))
+                        .count(listOf(SyncState.PENDING, SyncState.UPLOADING, SyncState.FAILED))
                     if (still > 0) return Result.retry()
                     break
                 }
                 rounds++
             }
             val left = app.container.database.localAssetDao()
-                .count(listOf(SyncState.PENDING, SyncState.UPLOADING))
+                .count(listOf(SyncState.PENDING, SyncState.UPLOADING, SyncState.FAILED))
+            setProgress(workDataOf(KEY_TOTAL to initialRemaining, KEY_REMAINING to left))
             if (left > 0) {
-                updateNotification("Paused — $left remaining. Tap Continue in app.")
-                Result.success(workDataOf("remaining" to left))
+                updateNotification(
+                    applicationContext.getString(R.string.migration_notification_paused, left),
+                )
+                Result.success(workDataOf(KEY_REMAINING to left))
             } else {
-                updateNotification("Migration complete")
-                Result.success(workDataOf("remaining" to 0))
+                updateNotification(applicationContext.getString(R.string.migration_notification_complete))
+                Result.success(workDataOf(KEY_REMAINING to 0))
             }
         } catch (e: Exception) {
             Result.failure(workDataOf("error" to (e.message ?: "migration failed")))
@@ -181,7 +201,7 @@ class MigrationWorker(
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle(applicationContext.getString(R.string.migration_notification_title))
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setSmallIcon(R.drawable.ic_notification_sync)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()
@@ -191,6 +211,8 @@ class MigrationWorker(
 
     companion object {
         const val UNIQUE = "photo_sync_migration"
+        const val KEY_REMAINING = "remaining"
+        const val KEY_TOTAL = "total"
         private const val CHANNEL_ID = "migration"
         private const val NOTIFICATION_ID = 42
 

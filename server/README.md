@@ -43,6 +43,8 @@ curl -X POST http://127.0.0.1:8787/api/pair -H "Content-Type: application/json" 
 | `PAIR_PIN` | PIN the Android app submits to `/api/pair` |
 | `PAIR_PIN_REUSABLE` | `true` = multiple devices may pair; `false` = one-time PIN |
 | `HOST` / `PORT` | Bind address (use `0.0.0.0` for LAN) |
+| `MAX_UPLOAD_SIZE_BYTES` | Reject uploads at/above this total size (default 20 GiB) |
+| `MAX_CHUNK_BYTES` | Reject a single chunk PUT body above this size (default 16 MiB); independent, smaller memory-safety cap on top of `MAX_UPLOAD_SIZE_BYTES` |
 
 Copy `.env.example` → `.env` and adjust paths for your machine.
 
@@ -58,6 +60,7 @@ Auth header on all routes except health + pair: `X-Device-Token: <token>`
 | POST | `/api/uploads/init` | resumable: `{ content_hash, size_bytes, original_filename, mime_type, ... }` → `{ upload_id, chunk_size, offset, existing_asset_id }` |
 | PUT | `/api/uploads/{id}/chunk?offset=` | raw body bytes (`application/octet-stream`) |
 | POST | `/api/uploads/{id}/complete` | optional `{ content_hash }` → asset |
+| POST | `/api/uploads/{id}/abort` | `{ upload_id, status: "aborted" }`; deletes the temp file |
 | GET | `/api/assets?state=&limit=&cursor=` | `{ items, next_cursor }` (asset uses `size_bytes`) |
 | GET | `/api/assets/{id}` | metadata |
 | GET | `/api/assets/{id}/thumbnail` | JPEG |
@@ -74,6 +77,19 @@ Asset states: `backed_up` | `archived`. Archive never deletes the PC file.
 Duplicate uploads (same `content_hash`) return **200** with the existing asset (idempotent).
 
 Video posters: Pillow image thumbs only; videos get a placeholder JPEG (ffmpeg optional later).
+
+## Security notes
+
+This server is designed for a trusted home LAN, not the open internet:
+
+- Change `PAIR_PIN` from the default before use — the server logs a warning at startup
+  if it's still the default. Anyone who can reach the server can pair a device with it.
+- Traffic is plain HTTP; device tokens are long-lived and stored in SQLite unencrypted.
+  Don't port-forward this server or expose it beyond your LAN.
+- Any paired device can see/manage every asset — there's no per-device isolation.
+- Pairing rate-limiting and per-upload write locks are in-process (a single `uvicorn`
+  worker, which is how `python -m app` runs it) — they don't hold up if you put this
+  behind a multi-process/multi-worker server.
 
 ## Run at Windows startup
 

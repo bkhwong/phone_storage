@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Matches the dark static-fallback background tone in ui/theme/Color.kt -->
+    <!-- Matches the dark static-fallback primary/background tones in ui/theme/Color.kt -->
+    <color name="ic_launcher_background">#FF1A3E9E</color>
     <color name="splash_background">#FF111318</color>
 </resources>

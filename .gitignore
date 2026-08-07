@@ -5,9 +5,15 @@ server/.venv/
 .pytest_cache/
 
 # Local config & data
+# NOTE: these are intentionally anchored to the repo root (leading slash). An unanchored
+# "data/" here previously matched android/app/src/main/java/com/phonesync/app/data/ too,
+# which silently kept the entire Kotlin data layer (Room DB, Retrofit client, prefs,
+# repository) out of every commit even though it was actively developed against — the app
+# has not compiled since the initial commit as a result. Keep any future repo-root-only
+# ignore rules anchored the same way.
 server/.env
-data/
-storage/
+/data/
+/storage/
 *.db
 *.db-*
 
@@ -15,3 +21,8 @@ storage/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Stray local build-tool output (found 12 of these accidentally committed at the repo
+# root from a local Windows Gradle debugging session, including a leaked home directory
+# path — removed; ignore future ones so it doesn't happen again).
+/build_log*.txt

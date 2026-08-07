@@ -141,6 +141,26 @@ def init_upload(
     )
 
 
+async def _read_body_capped(request: Request, max_bytes: int) -> bytes:
+    """Read the request body incrementally, rejecting it as soon as it exceeds
+    [max_bytes] instead of buffering the whole thing first. `await request.body()`
+    has no size limit of its own — a client (malicious or just buggy, e.g. retrying
+    with a wrong Content-Length) sending one oversized PUT could otherwise force the
+    server to allocate an unbounded amount of memory before any size check ever runs.
+    """
+    total = 0
+    parts: list[bytes] = []
+    async for piece in request.stream():
+        total += len(piece)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"chunk body exceeds max allowed chunk size ({max_bytes} bytes)",
+            )
+        parts.append(piece)
+    return b"".join(parts)
+
+
 @router.put("/api/uploads/{upload_id}/chunk")
 async def put_chunk(
     upload_id: str,
@@ -163,7 +183,8 @@ async def put_chunk(
             },
         )
 
-    body = await request.body()
+    settings = get_settings()
+    body = await _read_body_capped(request, settings.max_chunk_bytes)
     if not body:
         return {"upload_id": upload_id, "offset": session.bytes_received}
 
@@ -173,7 +194,6 @@ async def put_chunk(
             detail="chunk would exceed declared size",
         )
 
-    settings = get_settings()
     if session.bytes_received + len(body) > settings.max_upload_size_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,

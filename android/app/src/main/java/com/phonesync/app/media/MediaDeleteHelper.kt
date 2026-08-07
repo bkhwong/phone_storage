@@ -20,6 +20,16 @@ import androidx.activity.result.IntentSenderRequest
  */
 object MediaDeleteHelper {
 
+    /** Outcome of attempting to delete on-device files, so callers only mark rows as
+     * "freed" for URIs that were *actually* removed rather than assuming all-or-nothing. */
+    sealed interface DeleteOutcome {
+        /** MANAGE_MEDIA (or pre-R) path: deletes happen immediately, per-URI result known now. */
+        data class Immediate(val deletedUris: List<Uri>, val failedUris: List<Uri>) : DeleteOutcome
+
+        /** User confirmation required; caller must launch [pendingIntent] and await the result. */
+        data class RequiresConfirmation(val pendingIntent: PendingIntent) : DeleteOutcome
+    }
+
     fun hasManageMedia(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
         return MediaStore.canManageMedia(context)
@@ -37,29 +47,23 @@ object MediaDeleteHelper {
         }
     }
 
-    /**
-     * Returns a [PendingIntent] for user-confirmed delete when MANAGE_MEDIA is not granted.
-     * When MANAGE_MEDIA is granted, deletes immediately (silent) and returns null.
-     */
-    fun deleteUris(
-        context: Context,
-        uris: List<Uri>,
-    ): PendingIntent? {
-        if (uris.isEmpty()) return null
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hasManageMedia(context)) {
+    fun deleteUris(context: Context, uris: List<Uri>): DeleteOutcome {
+        if (uris.isEmpty()) return DeleteOutcome.Immediate(emptyList(), emptyList())
+
+        val canDeleteImmediately = Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hasManageMedia(context))
+
+        if (canDeleteImmediately) {
+            val deleted = mutableListOf<Uri>()
+            val failed = mutableListOf<Uri>()
             uris.forEach { uri ->
-                runCatching { context.contentResolver.delete(uri, null, null) }
+                val rows = runCatching { context.contentResolver.delete(uri, null, null) }.getOrDefault(0)
+                if (rows > 0) deleted += uri else failed += uri
             }
-            return null
+            return DeleteOutcome.Immediate(deleted, failed)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return MediaStore.createDeleteRequest(context.contentResolver, uris)
-        }
-        // Pre-R fallback: direct delete (may fail without write permission).
-        uris.forEach { uri ->
-            runCatching { context.contentResolver.delete(uri, null, null) }
-        }
-        return null
+
+        return DeleteOutcome.RequiresConfirmation(MediaStore.createDeleteRequest(context.contentResolver, uris))
     }
 
     fun intentSenderRequest(pendingIntent: PendingIntent): IntentSenderRequest =

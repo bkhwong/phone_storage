@@ -50,10 +50,18 @@ X-Device-Token: <device_token>
 | `PAIR_PIN_REUSABLE` | Behavior |
 |---------------------|----------|
 | `true` (default) | Same PIN can pair multiple devices / reinstalls |
-| `false` | First successful pair consumes the PIN; further pairs return 409 until you rotate `PAIR_PIN` or clear the `devices` table |
+| `false` | First successful pair blocks any further pairing with a 409, as long as *any* row exists in the `devices` table |
+
+Note: in `false` mode, the 409 check is "does any device exist", not "was this PIN
+already used". **Rotating `PAIR_PIN` alone does not unblock re-pairing** — you must
+also delete the existing row(s) from the `devices` table (or wipe `DB_PATH` entirely)
+before a new pair attempt (with any PIN) will succeed.
 
 ## Security notes
 
 - Keep the server on a **private** LAN (or Tailscale later). Do not port-forward to the public internet in v1.
-- Rotate `PAIR_PIN` if you suspect misuse; revoke devices by deleting rows from the `devices` table (or wipe `DB_PATH`).
-- Tokens are random (`token_urlsafe`); treat them like passwords on the phone.
+- The default `PAIR_PIN` (`123456`) is logged as a startup warning — change it in
+  `server/.env` before relying on this beyond a trusted LAN.
+- Revoke devices by deleting rows from the `devices` table (or wipe `DB_PATH`).
+- Tokens are random (`token_urlsafe`); treat them like passwords, and note they're
+  stored **unencrypted** in the server's SQLite database and sent over plain HTTP.

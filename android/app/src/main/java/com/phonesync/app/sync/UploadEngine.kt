@@ -86,11 +86,12 @@ class UploadEngine(
 
         dao.update(asset.copy(syncState = SyncState.UPLOADING))
 
-        var sessionId = asset.uploadSessionId
         var offset = asset.uploadOffset
         var chunkSize = DEFAULT_CHUNK_SIZE
+        val sessionId: String
 
-        if (sessionId.isNullOrBlank()) {
+        val existingSessionId = asset.uploadSessionId
+        if (existingSessionId.isNullOrBlank()) {
             val init = api.initUpload(
                 UploadInitRequest(
                     contentHash = hash,
@@ -115,6 +116,8 @@ class UploadEngine(
                     syncState = SyncState.UPLOADING,
                 ),
             )
+        } else {
+            sessionId = existingSessionId
         }
 
         val uri = Uri.parse(asset.contentUri)
@@ -131,7 +134,12 @@ class UploadEngine(
                     if (r < 0) break
                     readTotal += r
                 }
-                if (readTotal <= 0) break
+                if (readTotal <= 0) {
+                    error(
+                        "Upload interrupted: source stream ended early at offset=$offset of ${asset.sizeBytes} " +
+                            "(file may have changed or been deleted)",
+                    )
+                }
 
                 val chunkBody = object : RequestBody() {
                     override fun contentType() = ApiClientFactory.OCTET_STREAM
@@ -141,7 +149,7 @@ class UploadEngine(
                     }
                 }
 
-                val response = api.uploadChunk(sessionId!!, offset, chunkBody)
+                val response = api.uploadChunk(sessionId, offset, chunkBody)
                 if (!response.isSuccessful) {
                     error("Chunk upload failed at offset=$offset code=${response.code()}")
                 }
@@ -158,7 +166,7 @@ class UploadEngine(
             }
         } ?: error("Cannot open ${asset.contentUri}")
 
-        val complete = api.completeUpload(sessionId!!, UploadCompleteRequest(contentHash = hash))
+        val complete = api.completeUpload(sessionId, UploadCompleteRequest(contentHash = hash))
         return UploadResult(complete.id)
     }
 

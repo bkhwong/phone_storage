@@ -57,3 +57,34 @@ def test_simple_upload_rejects_oversized_stream(client, paired_headers):
     }
     r = client.post("/api/assets/upload", headers=paired_headers, files=files, data=data)
     assert r.status_code == 413
+
+
+@pytest.mark.parametrize("client", [{"MAX_CHUNK_BYTES": "1000"}], indirect=True)
+def test_chunk_upload_rejects_body_larger_than_max_chunk_bytes(client, paired_headers):
+    """Memory-safety guard: a single PUT .../chunk body is capped independently of the
+    declared total asset size, so a client can't force one oversized request to be
+    buffered fully into memory (see _read_body_capped in app/routes/uploads.py)."""
+    r = client.post(
+        "/api/uploads/init",
+        headers=paired_headers,
+        json={"content_hash": "2" * 64, "size_bytes": 1_000_000},
+    )
+    assert r.status_code == 200
+    upload_id = r.json()["upload_id"]
+
+    r = client.put(
+        f"/api/uploads/{upload_id}/chunk",
+        headers=paired_headers,
+        params={"offset": 0},
+        content=b"x" * 2000,
+    )
+    assert r.status_code == 413
+
+    # The session must still be usable afterwards for a properly-sized chunk.
+    r = client.put(
+        f"/api/uploads/{upload_id}/chunk",
+        headers=paired_headers,
+        params={"offset": 0},
+        content=b"x" * 500,
+    )
+    assert r.status_code == 200

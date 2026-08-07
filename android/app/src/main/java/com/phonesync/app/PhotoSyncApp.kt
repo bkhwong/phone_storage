@@ -25,7 +25,7 @@ class AppContainer(app: Application) {
         app,
         PhotoSyncDatabase::class.java,
         "photo_sync.db",
-    ).fallbackToDestructiveMigration().build()
+    ).fallbackToDestructiveMigration(dropAllTables = true).build()
 
     val apiFactory = ApiClientFactory(prefs)
     private val scanner = MediaStoreScanner(app)

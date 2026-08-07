@@ -15,6 +15,11 @@
     <!-- Media read: Android 13+ granular; older READ_EXTERNAL_STORAGE -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Android 14+ "Selected photos" partial access — without this the app can only ever
+         see an all-or-nothing grant of the two permissions above; a user who picks "Select
+         photos..." from the system permission dialog would otherwise look permission-denied
+         to hasMediaPermissions() and get stuck on the permission gate screen. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -33,6 +38,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.PhotoSync"
+        tools:ignore="DataExtractionRules"
         tools:targetApi="36">
 
         <activity

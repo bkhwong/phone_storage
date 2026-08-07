@@ -3,6 +3,15 @@
     <string name="app_name">Photo Sync</string>
     <string name="notification_channel_sync">Sync</string>
     <string name="notification_channel_migration">Migration</string>
-    <string name="sync_notification_title">Photo Sync</string>
     <string name="migration_notification_title">Library migration</string>
+    <string name="migration_notification_uploading">Uploading your library to PC…</string>
+    <plurals name="migration_notification_progress">
+        <item quantity="one">Uploading — %1$d item left</item>
+        <item quantity="other">Uploading — %1$d items left</item>
+    </plurals>
+    <plurals name="migration_notification_paused">
+        <item quantity="one">Paused — %1$d remaining. Tap Continue in the app.</item>
+        <item quantity="other">Paused — %1$d remaining. Tap Continue in the app.</item>
+    </plurals>
+    <string name="migration_notification_complete">Library migration complete</string>
 </resources>
